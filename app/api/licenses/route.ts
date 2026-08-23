@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     );
     return Response.json(feed, {
       headers: {
-        'Cache-Control': forceRefresh
+        'Cache-Control': forceRefresh || feed.stale
           ? 'no-store'
           : 'public, max-age=300, stale-while-revalidate=900',
       },

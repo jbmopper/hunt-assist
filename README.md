@@ -15,6 +15,12 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). No account, API key, or
 environment file is required.
 
+Run the complete local verification suite with:
+
+```bash
+npm run check
+```
+
 ## What works now
 
 - Downloads CPW's current leftover or reissue-preview PDF on the server.
@@ -50,6 +56,14 @@ GET /api/licenses?source=leftover&refresh=1
 The Widen asset URLs used by CPW are discovered through their public asset
 metadata response rather than hard-coding an expiring PDF download URL. PDF
 parsing and all caching happen locally in this app.
+
+The parser discovers table columns from each page's headers instead of assuming
+fixed coordinates. It requires every detected hunt-code row to produce units,
+list, quota, and season dates; malformed reports fail closed and the server uses
+the last verified cached copy when one is available. Synthetic regression
+fixtures cover wrapped rows, shifted layouts, notices, duplicates, missing
+fields, and changed headers. GitHub Actions runs tests, lint, and the production
+build on pushes and pull requests.
 
 ## Scope and next steps
 

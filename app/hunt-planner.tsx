@@ -1,143 +1,18 @@
 'use client';
 
-import type { FeatureCollection, Geometry } from 'geojson';
-import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import HuntMap from './components/hunt-map';
+import { SAMPLE_HUNTS } from '@/lib/sample-hunts';
+import type {
+  LicenseFeed,
+  LicenseRecord,
+  LicenseSpecies,
+} from '@/lib/license-types';
 
-type Species =
-  | 'All'
-  | 'Elk'
-  | 'Deer'
-  | 'Pronghorn'
-  | 'Black bear'
-  | 'Turkey'
-  | 'Moose'
-  | 'Mountain goat'
-  | 'Bighorn sheep'
-  | 'Other';
-
-type Hunt = {
-  access: 'Public + private' | 'Private land only';
-  code: string;
-  description: string;
-  list: string;
-  method: string;
-  methodCode: string;
-  quota: number;
-  residency: 'Everyone' | 'Nonresident only' | 'Resident only';
-  season: string;
-  seasonCode: string;
-  sex: string;
-  species: Exclude<Species, 'All'>;
-  units: number[];
-};
-
-type LicenseFeed = {
-  fetchedAt: string;
-  generatedAt: string | null;
-  hunts: Hunt[];
-  notice: string | null;
-  source: {
-    kind: 'leftover' | 'reissue';
-    label: string;
-    officialPageUrl: string;
-    pdfPageUrl: string;
-  };
-};
-
-type FeedState = 'loading' | 'live' | 'error';
+type Species = 'All' | LicenseSpecies;
+type FeedState = 'error' | 'live' | 'loading' | 'stale';
 type SourceKind = LicenseFeed['source']['kind'];
 type HuntMethod = 'All' | 'A' | 'M' | 'R' | 'X';
-
-const GMU_QUERY =
-  'https://ndismaps.nrel.colostate.edu/arcgis/rest/services/HuntingAtlas/HuntingAtlas_Base_Map/MapServer/93/query?where=1%3D1&outFields=GMUID%2CCOUNTY%2CDEERDAU%2CELKDAU%2CANTDAU%2CMOOSEDAU%2CBEARDAU&returnGeometry=true&outSR=4326&geometryPrecision=4&maxAllowableOffset=0.001&f=geojson';
-const HUNTING_ATLAS_EXPORT =
-  'https://ndismaps.nrel.colostate.edu/arcgis/rest/services/HuntingAtlas/HuntingAtlas_Base_Map/MapServer/export';
-
-function atlasRasterTiles(layerIds: string) {
-  return [
-    `${HUNTING_ATLAS_EXPORT}?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&dpi=96&format=png32&transparent=true&layers=show%3A${layerIds}&f=image`,
-  ];
-}
-
-const sampleHunts: Hunt[] = [
-  {
-    code: 'EF011O4R',
-    species: 'Elk',
-    sex: 'Cow',
-    method: 'Rifle · 4th season',
-    methodCode: 'R',
-    units: [11, 12, 13, 23, 24, 211],
-    quota: 1544,
-    season: '11/18/2026 - 11/22/2026',
-    seasonCode: '4',
-    access: 'Public + private',
-    description: '',
-    list: 'A',
-    residency: 'Everyone',
-  },
-  {
-    code: 'BE034O1R',
-    species: 'Black bear',
-    sex: 'Either sex',
-    method: 'Rifle · September',
-    methodCode: 'R',
-    units: [34],
-    quota: 167,
-    season: '09/02/2026 - 09/30/2026',
-    seasonCode: '1',
-    access: 'Public + private',
-    description: '',
-    list: 'B',
-    residency: 'Everyone',
-  },
-  {
-    code: 'DE104O3M',
-    species: 'Deer',
-    sex: 'Antlerless · whitetail',
-    method: 'Muzzleloader',
-    methodCode: 'M',
-    units: [104, 105, 106],
-    quota: 11,
-    season: '10/10/2026 - 10/18/2026',
-    seasonCode: '3',
-    access: 'Public + private',
-    description: 'WHITETAIL ONLY',
-    list: 'A',
-    residency: 'Everyone',
-  },
-  {
-    code: 'AF106O1R',
-    species: 'Pronghorn',
-    sex: 'Doe',
-    method: 'Rifle',
-    methodCode: 'R',
-    units: [106],
-    quota: 111,
-    season: '10/03/2026 - 10/11/2026',
-    seasonCode: '1',
-    access: 'Public + private',
-    description: '',
-    list: 'B',
-    residency: 'Everyone',
-  },
-  {
-    code: 'EE015P3R',
-    species: 'Elk',
-    sex: 'Cow',
-    method: 'Rifle · 3rd season',
-    methodCode: 'R',
-    units: [15],
-    quota: 16,
-    season: '11/07/2026 - 11/15/2026',
-    seasonCode: '3',
-    access: 'Private land only',
-    description: 'PRIVATE LAND ONLY',
-    list: 'A',
-    residency: 'Everyone',
-  },
-];
 
 const speciesOptions: Species[] = [
   'All',
@@ -201,8 +76,6 @@ function MountainMark() {
 }
 
 export default function HuntPlanner() {
-  const mapNode = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
   const [species, setSpecies] = useState<Species>('All');
   const [huntMethod, setHuntMethod] = useState<HuntMethod>('All');
   const [publicOnly, setPublicOnly] = useState(false);
@@ -211,8 +84,9 @@ export default function HuntPlanner() {
   const [query, setQuery] = useState('');
   const [selectedGmu, setSelectedGmu] = useState<number | null>(null);
   const [sourceKind, setSourceKind] = useState<SourceKind>('leftover');
-  const [hunts, setHunts] = useState<Hunt[]>(sampleHunts);
+  const [hunts, setHunts] = useState<LicenseRecord[]>(SAMPLE_HUNTS);
   const [feedState, setFeedState] = useState<FeedState>('loading');
+  const [feedWarning, setFeedWarning] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pdfPageUrl, setPdfPageUrl] = useState<string | null>(null);
@@ -221,11 +95,6 @@ export default function HuntPlanner() {
   const [savedCodes, setSavedCodes] = useState<string[]>([]);
   const [savedReady, setSavedReady] = useState(false);
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_HUNTS);
-  const [showAccess, setShowAccess] = useState(false);
-  const [showLand, setShowLand] = useState(false);
-  const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>(
-    'loading',
-  );
 
   const availableSpecies = useMemo(
     () =>
@@ -344,8 +213,9 @@ export default function HuntPlanner() {
         setGeneratedAt(feed.generatedAt);
         setNotice(feed.notice);
         setPdfPageUrl(feed.source.pdfPageUrl);
+        setFeedWarning(feed.warning);
         setUsingSample(false);
-        setFeedState('live');
+        setFeedState(feed.stale ? 'stale' : 'live');
       } catch (error) {
         if ((error as Error).name === 'AbortError') return;
         setFeedState('error');
@@ -360,10 +230,11 @@ export default function HuntPlanner() {
     if (nextSource === sourceKind) return;
     setFeedState('loading');
     setGeneratedAt(null);
+    setFeedWarning(null);
     setNotice(null);
     setPdfPageUrl(null);
     setUsingSample(nextSource === 'leftover');
-    setHunts(nextSource === 'leftover' ? sampleHunts : []);
+    setHunts(nextSource === 'leftover' ? SAMPLE_HUNTS : []);
     setSourceKind(nextSource);
     setSpecies('All');
     setHuntMethod('All');
@@ -393,200 +264,10 @@ export default function HuntPlanner() {
     setVisibleLimit(INITIAL_VISIBLE_HUNTS);
   }
 
-  useEffect(() => {
-    if (!mapNode.current || mapRef.current) return;
-
-    let disposed = false;
-
-    async function mountMap() {
-      const maplibregl = await import('maplibre-gl');
-      if (disposed || !mapNode.current) return;
-
-      const map = new maplibregl.Map({
-        container: mapNode.current,
-        center: [-105.58, 38.98],
-        zoom: 5.65,
-        minZoom: 4.8,
-        maxZoom: 13,
-        attributionControl: false,
-        style: {
-          version: 8,
-          glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
-          sources: {
-            'open-street-map': {
-              type: 'raster',
-              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-              tileSize: 256,
-              attribution:
-                '&copy; OpenStreetMap contributors · Colorado GMUs: CPW',
-            },
-            'cpw-land-management': {
-              type: 'raster',
-              tiles: atlasRasterTiles('103'),
-              tileSize: 256,
-              attribution: 'Land management: CPW / COMaP',
-            },
-            'cpw-public-access': {
-              type: 'raster',
-              tiles: atlasRasterTiles('101%2C102'),
-              tileSize: 256,
-              attribution: 'Public access and Walk-In Access: CPW',
-            },
-          },
-          layers: [
-            {
-              id: 'base-map',
-              type: 'raster',
-              source: 'open-street-map',
-              paint: {
-                'raster-saturation': -0.78,
-                'raster-contrast': 0.08,
-                'raster-brightness-max': 0.93,
-              },
-            },
-            {
-              id: 'land-management-overlay',
-              type: 'raster',
-              source: 'cpw-land-management',
-              layout: { visibility: 'none' },
-              paint: { 'raster-opacity': 0.7 },
-            },
-            {
-              id: 'public-access-overlay',
-              type: 'raster',
-              source: 'cpw-public-access',
-              layout: { visibility: 'none' },
-              paint: { 'raster-opacity': 0.88 },
-            },
-          ],
-        },
-      });
-
-      mapRef.current = map;
-      map.addControl(
-        new maplibregl.NavigationControl({ showCompass: false }),
-        'top-right',
-      );
-      map.addControl(
-        new maplibregl.AttributionControl({ compact: true }),
-        'bottom-right',
-      );
-
-      map.on('load', async () => {
-        try {
-          const response = await fetch(GMU_QUERY);
-          if (!response.ok) throw new Error('GMU service did not respond');
-          const data = (await response.json()) as FeatureCollection<Geometry>;
-          if (disposed) return;
-
-          map.addSource('colorado-gmus', {
-            type: 'geojson',
-            data,
-            generateId: true,
-          });
-          map.addLayer({
-            id: 'gmu-fill',
-            type: 'fill',
-            source: 'colorado-gmus',
-            paint: {
-              'fill-color': '#d66b35',
-              'fill-opacity': 0.09,
-            },
-          });
-          map.addLayer({
-            id: 'gmu-outline',
-            type: 'line',
-            source: 'colorado-gmus',
-            paint: {
-              'line-color': '#203f31',
-              'line-opacity': 0.72,
-              'line-width': 1.2,
-            },
-          });
-          map.addLayer({
-            id: 'gmu-labels',
-            type: 'symbol',
-            source: 'colorado-gmus',
-            minzoom: 6.3,
-            layout: {
-              'text-field': ['to-string', ['get', 'GMUID']],
-              'text-size': 11,
-              'text-font': ['Open Sans Semibold'],
-            },
-            paint: {
-              'text-color': '#173326',
-              'text-halo-color': '#f4f0e7',
-              'text-halo-width': 1.5,
-            },
-          });
-
-          const onMapClick = (event: MapMouseEvent) => {
-            const [feature] = map.queryRenderedFeatures(event.point, {
-              layers: ['gmu-fill'],
-            });
-            const gmu = Number(feature?.properties?.GMUID);
-            if (Number.isFinite(gmu)) {
-              setSelectedGmu(gmu);
-              setVisibleLimit(INITIAL_VISIBLE_HUNTS);
-            }
-          };
-          map.on('click', onMapClick);
-          map.on('mouseenter', 'gmu-fill', () => {
-            map.getCanvas().style.cursor = 'pointer';
-          });
-          map.on('mouseleave', 'gmu-fill', () => {
-            map.getCanvas().style.cursor = '';
-          });
-          setMapStatus('ready');
-        } catch {
-          setMapStatus('error');
-        }
-      });
-    }
-
-    void mountMap();
-    return () => {
-      disposed = true;
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
+  const handleSelectGmu = useCallback((gmu: number) => {
+    setSelectedGmu(gmu);
+    setVisibleLimit(INITIAL_VISIBLE_HUNTS);
   }, []);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map?.getLayer('gmu-fill')) return;
-    const units = Array.from(new Set(filteredHunts.flatMap((hunt) => hunt.units)));
-    const matchingOpacity = units.length
-      ? (['match', ['get', 'GMUID'], units, 0.38, 0.055] as const)
-      : 0.055;
-    map.setPaintProperty(
-      'gmu-fill',
-      'fill-opacity',
-      selectedGmu === null
-        ? matchingOpacity
-        : [
-            'case',
-            ['==', ['get', 'GMUID'], selectedGmu],
-            0.58,
-            matchingOpacity,
-          ],
-    );
-  }, [filteredHunts, mapStatus, selectedGmu]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map?.getLayer('public-access-overlay')) return;
-    map.setLayoutProperty(
-      'public-access-overlay',
-      'visibility',
-      showAccess ? 'visible' : 'none',
-    );
-    map.setLayoutProperty(
-      'land-management-overlay',
-      'visibility',
-      showLand ? 'visible' : 'none',
-    );
-  }, [mapStatus, showAccess, showLand]);
 
   const sourceTime = formatSourceTime(generatedAt);
   const feedLabel =
@@ -596,9 +277,11 @@ export default function HuntPlanner() {
         ? usingSample
           ? 'CPW unavailable · sample shown'
           : 'CPW feed unavailable'
-        : sourceTime
-          ? `CPW list · ${sourceTime}`
-          : 'CPW list is current';
+        : feedState === 'stale'
+          ? 'CPW changed · verified copy shown'
+          : sourceTime
+            ? `CPW list · ${sourceTime}`
+            : 'CPW list is current';
 
   return (
     <main className="app-shell">
@@ -802,11 +485,13 @@ export default function HuntPlanner() {
               <span>
                 {feedState === 'loading'
                   ? 'Loading the official CPW list'
-                  : usingSample
-                    ? 'Fallback sample — verify with CPW'
-                    : sourceKind === 'leftover'
-                      ? `${hunts.length} hunt codes in the current leftover list`
-                      : 'Tuesday preview for Wednesday reissues'}
+                  : feedState === 'stale'
+                    ? (feedWarning ?? 'Showing the last verified CPW report')
+                    : usingSample
+                      ? 'Fallback sample — verify with CPW'
+                      : sourceKind === 'leftover'
+                        ? `${hunts.length} hunt codes in the current leftover list`
+                        : 'Tuesday preview for Wednesday reissues'}
               </span>
             </div>
             {selectedGmu !== null && (
@@ -924,56 +609,11 @@ export default function HuntPlanner() {
           </div>
         </section>
 
-        <section className="map-panel" aria-label="Colorado game management unit map">
-          <div className="map-toolbar">
-            <div className="map-toolbar-title">
-              <span className="map-kicker">Colorado · 186 big-game units</span>
-              <strong>{selectedGmu ? `GMU ${selectedGmu}` : 'Statewide view'}</strong>
-            </div>
-            <div className="map-toolbar-actions">
-              <div className="layer-switches" aria-label="Map layers">
-                <button
-                  className={showAccess ? 'layer-button layer-button-active' : 'layer-button'}
-                  type="button"
-                  onClick={() => setShowAccess((value) => !value)}
-                  aria-pressed={showAccess}
-                >
-                  CPW access
-                </button>
-                <button
-                  className={showLand ? 'layer-button layer-button-active' : 'layer-button'}
-                  type="button"
-                  onClick={() => setShowLand((value) => !value)}
-                  aria-pressed={showLand}
-                >
-                  Land manager
-                </button>
-              </div>
-              <span className={`map-status map-status-${mapStatus}`}>
-                {mapStatus === 'loading' && 'Loading CPW boundaries…'}
-                {mapStatus === 'ready' && 'CPW layers live'}
-                {mapStatus === 'error' && 'Boundary layer unavailable'}
-              </span>
-            </div>
-          </div>
-          <div className="map-wrap">
-            <div className="map-canvas" ref={mapNode} />
-            <div className="map-legend">
-              <span><i className="legend-fill" /> Matching hunt unit</span>
-              <span><i className="legend-line" /> CPW GMU boundary</span>
-              {showAccess && <span><i className="legend-access" /> CPW / Walk-In access</span>}
-              {showLand && <span><i className="legend-land" /> Land management</span>}
-            </div>
-            <div className="map-hint">Click a unit to filter licenses</div>
-          </div>
-          <footer className="map-footer">
-            <span>Planning aid only — always verify the current CPW brochure, license, closures, and land ownership.</span>
-            <nav aria-label="Official Colorado hunting resources">
-              <a href="https://cpw.widen.net/s/n62qtjdsbw/biggame" target="_blank" rel="noreferrer">2026 brochure ↗</a>
-              <a href="https://ndismaps.nrel.colostate.edu/index.html" target="_blank" rel="noreferrer">Hunting Atlas ↗</a>
-            </nav>
-          </footer>
-        </section>
+        <HuntMap
+          hunts={filteredHunts}
+          onSelectGmu={handleSelectGmu}
+          selectedGmu={selectedGmu}
+        />
       </div>
     </main>
   );

@@ -156,6 +156,11 @@ a {
   box-shadow: 0 0 0 4px rgb(195 144 55 / 12%);
 }
 
+.status-dot-stale {
+  background: #c39037;
+  box-shadow: 0 0 0 4px rgb(195 144 55 / 12%);
+}
+
 .status-dot-error {
   background: #b24f3f;
   box-shadow: 0 0 0 4px rgb(178 79 63 / 12%);
