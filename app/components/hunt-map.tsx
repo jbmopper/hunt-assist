@@ -1,15 +1,48 @@
 'use client';
 
 import type { FeatureCollection, Geometry } from 'geojson';
-import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
+import type {
+  Map as MapLibreMap,
+  MapGeoJSONFeature,
+  MapMouseEvent,
+} from 'maplibre-gl';
+import type { DataDrivenPropertyValueSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { useEffect, useRef, useState } from 'react';
+import { CURRENT_DROUGHT_RASTER_TILES } from '@/lib/bear-intel';
 import type { LicenseRecord } from '@/lib/license-types';
+import type {
+  BearTargetCollection,
+  BearTargetFeature,
+} from '@/lib/bear-targets';
+import {
+  addBearAreaLayers,
+  addHumanFoodLayers,
+  BEAR_AREA_QUERY,
+  fetchIntelCollection,
+  HUMAN_FOOD_MAP_LAYERS,
+  HUMAN_FOOD_QUERY,
+} from './bear-map-layers';
+import MapLayerMenu, {
+  type IntelStatus,
+  type MapLayerKey,
+  type MapLayerState,
+} from './map-layer-menu';
+import {
+  addOrUpdateBearTargetLayers,
+  BEAR_TARGET_INTERACTIVE_LAYERS,
+  BEAR_TARGET_LAYER_IDS,
+  setBearTargetSelection,
+} from './bear-target-map-layers';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 type HuntMapProps = {
+  analysisMode: boolean;
   hunts: LicenseRecord[];
   onSelectGmu: (gmu: number) => void;
+  onSelectTarget: (targetId: string) => void;
   selectedGmu: number | null;
+  selectedTarget: BearTargetFeature | null;
+  targetCollection: BearTargetCollection | null;
 };
 
 const GMU_QUERY =
@@ -23,18 +56,43 @@ function atlasRasterTiles(layerIds: string) {
   ];
 }
 
+function setLayerVisibility(
+  map: MapLibreMap,
+  layerIds: readonly string[],
+  visible: boolean,
+) {
+  for (const layerId of layerIds) {
+    if (map.getLayer(layerId)) {
+      map.setLayoutProperty(
+        layerId,
+        'visibility',
+        visible ? 'visible' : 'none',
+      );
+    }
+  }
+}
+
 export default function HuntMap({
+  analysisMode,
   hunts,
   onSelectGmu,
+  onSelectTarget,
   selectedGmu,
+  selectedTarget,
+  targetCollection,
 }: HuntMapProps) {
   const mapNode = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const [showAccess, setShowAccess] = useState(false);
-  const [showLand, setShowLand] = useState(false);
+  const [layers, setLayers] = useState<MapLayerState>({
+    access: false,
+    forage: false,
+    humanFood: false,
+    land: false,
+  });
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'error'>(
     'loading',
   );
+  const [intelStatus, setIntelStatus] = useState<IntelStatus>('loading');
 
   useEffect(() => {
     if (!mapNode.current || mapRef.current) return;
@@ -52,7 +110,7 @@ export default function HuntMap({
         center: [-105.58, 38.98],
         zoom: 5.65,
         minZoom: 4.8,
-        maxZoom: 13,
+        maxZoom: 17,
         attributionControl: false,
         style: {
           version: 8,
@@ -64,6 +122,21 @@ export default function HuntMap({
               tileSize: 256,
               attribution:
                 '&copy; OpenStreetMap contributors · Colorado GMUs: CPW',
+            },
+            'usgs-imagery': {
+              type: 'raster',
+              tiles: [
+                'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',
+              ],
+              tileSize: 256,
+              maxzoom: 16,
+              attribution: 'Aerial imagery: USGS The National Map / NAIP',
+            },
+            'current-drought': {
+              type: 'raster',
+              tiles: CURRENT_DROUGHT_RASTER_TILES,
+              tileSize: 256,
+              attribution: 'Current drought: U.S. Drought Monitor / FEMA',
             },
             'cpw-land-management': {
               type: 'raster',
@@ -88,6 +161,25 @@ export default function HuntMap({
                 'raster-contrast': 0.08,
                 'raster-brightness-max': 0.93,
               },
+            },
+            {
+              id: 'target-imagery',
+              type: 'raster',
+              source: 'usgs-imagery',
+              layout: { visibility: 'none' },
+              paint: {
+                'raster-saturation': -0.12,
+                'raster-contrast': 0.16,
+                'raster-brightness-min': 0.04,
+                'raster-brightness-max': 0.82,
+              },
+            },
+            {
+              id: 'drought-stress-overlay',
+              type: 'raster',
+              source: 'current-drought',
+              layout: { visibility: 'none' },
+              paint: { 'raster-opacity': 0.26 },
             },
             {
               id: 'land-management-overlay',
@@ -120,6 +212,7 @@ export default function HuntMap({
       );
 
       map.on('load', async () => {
+        setMapStatus('ready');
         try {
           const response = await fetch(GMU_QUERY, { signal: controller.signal });
           if (!response.ok) throw new Error('GMU service did not respond');
@@ -135,10 +228,7 @@ export default function HuntMap({
             id: 'gmu-fill',
             type: 'fill',
             source: 'colorado-gmus',
-            paint: {
-              'fill-color': '#d66b35',
-              'fill-opacity': 0.09,
-            },
+            paint: { 'fill-color': '#d66b35', 'fill-opacity': 0.09 },
           });
           map.addLayer({
             id: 'gmu-outline',
@@ -168,6 +258,26 @@ export default function HuntMap({
           });
 
           const onMapClick = (event: MapMouseEvent) => {
+            const targetLayers = BEAR_TARGET_INTERACTIVE_LAYERS.filter(
+              (layerId) => map.getLayer(layerId),
+            );
+            if (
+              targetLayers.length &&
+              map.queryRenderedFeatures(event.point, { layers: targetLayers })
+                .length
+            ) {
+              return;
+            }
+            const intelLayers = HUMAN_FOOD_MAP_LAYERS.filter((layerId) =>
+              map.getLayer(layerId),
+            );
+            if (
+              intelLayers.length &&
+              map.queryRenderedFeatures(event.point, { layers: intelLayers })
+                .length
+            ) {
+              return;
+            }
             const [feature] = map.queryRenderedFeatures(event.point, {
               layers: ['gmu-fill'],
             });
@@ -181,10 +291,41 @@ export default function HuntMap({
           map.on('mouseleave', 'gmu-fill', () => {
             map.getCanvas().style.cursor = '';
           });
-          setMapStatus('ready');
+          void Promise.allSettled([
+            fetchIntelCollection(BEAR_AREA_QUERY, controller.signal),
+            fetchIntelCollection(HUMAN_FOOD_QUERY, controller.signal),
+          ]).then(([areaResult, foodResult]) => {
+            if (disposed) return;
+            let loadedSources = 0;
+            let warningCount = 0;
+
+            if (areaResult.status === 'fulfilled') {
+              loadedSources += 1;
+              warningCount += areaResult.value.metadata?.warnings?.length ?? 0;
+              addBearAreaLayers(map, areaResult.value);
+            } else {
+              warningCount += 1;
+            }
+
+            if (foodResult.status === 'fulfilled') {
+              loadedSources += 1;
+              warningCount += foodResult.value.metadata?.warnings?.length ?? 0;
+              addHumanFoodLayers(map, maplibregl, foodResult.value);
+            } else {
+              warningCount += 1;
+            }
+
+            setIntelStatus(
+              loadedSources === 0
+                ? 'error'
+                : warningCount > 0
+                  ? 'partial'
+                  : 'ready',
+            );
+          });
         } catch (error) {
           if (!disposed && (error as Error).name !== 'AbortError') {
-            setMapStatus('error');
+            setIntelStatus('error');
           }
         }
       });
@@ -193,6 +334,7 @@ export default function HuntMap({
     void mountMap().catch((error) => {
       if (!disposed && (error as Error).name !== 'AbortError') {
         setMapStatus('error');
+        setIntelStatus('error');
       }
     });
     return () => {
@@ -206,14 +348,71 @@ export default function HuntMap({
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map || mapStatus !== 'ready' || !targetCollection) return;
+
+    addOrUpdateBearTargetLayers(map, targetCollection);
+
+    const onTargetClick = (
+      event: MapMouseEvent & { features?: MapGeoJSONFeature[] },
+    ) => {
+      const targetId = event.features?.[0]?.properties?.targetId;
+      if (typeof targetId === 'string') onSelectTarget(targetId);
+    };
+    const showPointer = () => {
+      map.getCanvas().style.cursor = 'pointer';
+    };
+    const clearPointer = () => {
+      map.getCanvas().style.cursor = '';
+    };
+
+    for (const layerId of BEAR_TARGET_INTERACTIVE_LAYERS) {
+      map.on('click', layerId, onTargetClick);
+      map.on('mouseenter', layerId, showPointer);
+      map.on('mouseleave', layerId, clearPointer);
+    }
+
+    return () => {
+      for (const layerId of BEAR_TARGET_INTERACTIVE_LAYERS) {
+        map.off('click', layerId, onTargetClick);
+        map.off('mouseenter', layerId, showPointer);
+        map.off('mouseleave', layerId, clearPointer);
+      }
+    };
+  }, [mapStatus, onSelectTarget, targetCollection]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.getLayer('target-imagery')) return;
+    setLayerVisibility(map, ['target-imagery'], analysisMode);
+    setLayerVisibility(map, BEAR_TARGET_LAYER_IDS, analysisMode);
+  }, [analysisMode, mapStatus, targetCollection]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.getLayer('bear-target-points')) return;
+    const targetId = selectedTarget?.properties.targetId ?? null;
+    setBearTargetSelection(map, targetId);
+    if (!analysisMode || !selectedTarget) return;
+    map.flyTo({
+      center: selectedTarget.geometry.coordinates as [number, number],
+      zoom: Math.max(map.getZoom(), 11.8),
+      duration: 900,
+      essential: true,
+    });
+  }, [analysisMode, mapStatus, selectedTarget]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!map?.getLayer('gmu-fill')) return;
+    if (analysisMode) {
+      map.setPaintProperty('gmu-fill', 'fill-opacity', 0.012);
+      return;
+    }
     const units = Array.from(new Set(hunts.flatMap((hunt) => hunt.units)));
     const matchingOpacity = units.length
-      ? (['match', ['get', 'GMUID'], units, 0.38, 0.055] as const)
+      ? ['match', ['get', 'GMUID'], units, 0.38, 0.055]
       : 0.055;
-    map.setPaintProperty(
-      'gmu-fill',
-      'fill-opacity',
+    const fillOpacity = (
       selectedGmu === null
         ? matchingOpacity
         : [
@@ -221,70 +420,131 @@ export default function HuntMap({
             ['==', ['get', 'GMUID'], selectedGmu],
             0.58,
             matchingOpacity,
-          ],
+          ]
+    ) as DataDrivenPropertyValueSpecification<number>;
+    map.setPaintProperty(
+      'gmu-fill',
+      'fill-opacity',
+      fillOpacity,
     );
-  }, [hunts, mapStatus, selectedGmu]);
+  }, [analysisMode, hunts, mapStatus, selectedGmu]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map?.getLayer('public-access-overlay')) return;
-    map.setLayoutProperty(
-      'public-access-overlay',
-      'visibility',
-      showAccess ? 'visible' : 'none',
+    setLayerVisibility(map, ['public-access-overlay'], layers.access);
+    setLayerVisibility(map, ['land-management-overlay'], layers.land);
+    setLayerVisibility(map, ['drought-stress-overlay'], layers.forage);
+    setLayerVisibility(
+      map,
+      ['bear-fall-concentration-fill', 'bear-fall-concentration-outline'],
+      layers.forage,
     );
-    map.setLayoutProperty(
-      'land-management-overlay',
-      'visibility',
-      showLand ? 'visible' : 'none',
+    setLayerVisibility(
+      map,
+      ['bear-human-conflict-fill', 'bear-human-conflict-outline'],
+      layers.humanFood,
     );
-  }, [mapStatus, showAccess, showLand]);
+    setLayerVisibility(map, HUMAN_FOOD_MAP_LAYERS, layers.humanFood);
+  }, [intelStatus, layers, mapStatus]);
+
+  function changeLayer(layer: MapLayerKey, visible: boolean) {
+    setLayers((current) => ({ ...current, [layer]: visible }));
+  }
+
+  const proxySummary = layers.forage && layers.humanFood
+    ? 'Green marks CPW fall-use habitat under the weekly drought overlay. Purple areas show CPW conflict history; orange points show developed camping.'
+    : layers.forage
+      ? 'Green marks CPW fall-use habitat; the weekly drought overlay adds current vegetation-stress context, not measured mast abundance.'
+      : 'Purple areas show CPW conflict history; orange points show developed camping, not verified garbage access.';
 
   return (
-    <section className="map-panel" aria-label="Colorado game management unit map">
+    <section
+      className={analysisMode ? 'map-panel map-panel-targeting' : 'map-panel'}
+      aria-label={analysisMode ? 'BE012O1R bear target map' : 'Colorado game management unit map'}
+    >
       <div className="map-toolbar">
         <div className="map-toolbar-title">
-          <span className="map-kicker">Colorado · 186 big-game units</span>
-          <strong>{selectedGmu ? `GMU ${selectedGmu}` : 'Statewide view'}</strong>
+          <span className="map-kicker">
+            {analysisMode
+              ? `BE012O1R · imagery ${targetCollection?.metadata.imageryDate ?? 'loading'}`
+              : 'Colorado · 186 big-game units'}
+          </span>
+          <strong>
+            {analysisMode
+              ? selectedTarget
+                ? `#${selectedTarget.properties.rank} · ${selectedTarget.properties.nearbyFeature}`
+                : 'Ranked bear corridors'
+              : selectedGmu !== null
+                ? `GMU ${selectedGmu}`
+                : 'Statewide view'}
+          </strong>
         </div>
         <div className="map-toolbar-actions">
-          <div className="layer-switches" aria-label="Map layers">
-            <button
-              className={showAccess ? 'layer-button layer-button-active' : 'layer-button'}
-              type="button"
-              onClick={() => setShowAccess((value) => !value)}
-              aria-pressed={showAccess}
-            >
-              CPW access
-            </button>
-            <button
-              className={showLand ? 'layer-button layer-button-active' : 'layer-button'}
-              type="button"
-              onClick={() => setShowLand((value) => !value)}
-              aria-pressed={showLand}
-            >
-              Land manager
-            </button>
-          </div>
+          <MapLayerMenu
+            intelStatus={intelStatus}
+            layers={layers}
+            onChange={changeLayer}
+          />
           <span className={`map-status map-status-${mapStatus}`}>
-            {mapStatus === 'loading' && 'Loading CPW boundaries…'}
-            {mapStatus === 'ready' && 'CPW layers live'}
-            {mapStatus === 'error' && 'Boundary layer unavailable'}
+            {mapStatus === 'loading' && 'Loading map…'}
+            {mapStatus === 'ready' &&
+              (analysisMode ? 'Target model loaded' : 'Map layers live')}
+            {mapStatus === 'error' && 'Map unavailable'}
           </span>
         </div>
       </div>
       <div className="map-wrap">
         <div className="map-canvas" ref={mapNode} />
+        {(analysisMode || layers.forage || layers.humanFood) && (
+          <aside className="map-proxy-note" aria-label="Bear proxy explanation">
+            <strong>
+              {analysisMode ? 'Lead, not bear probability' : 'Proxy, not a live bear map'}
+            </strong>
+            <span>
+              {analysisMode
+                ? 'Orange is the target pocket, mint is a modeled concealed route, and blue is a terrain-screened glassing option. Verify all three on the ground.'
+                : proxySummary}
+            </span>
+          </aside>
+        )}
         <div className="map-legend">
-          <span><i className="legend-fill" /> Matching hunt unit</span>
-          <span><i className="legend-line" /> CPW GMU boundary</span>
-          {showAccess && <span><i className="legend-access" /> CPW / Walk-In access</span>}
-          {showLand && <span><i className="legend-land" /> Land management</span>}
+          {analysisMode ? (
+            <>
+              <span><i className="legend-target" /> Ranked target pocket</span>
+              <span><i className="legend-corridor" /> Modeled corridor</span>
+              <span><i className="legend-glassing" /> Potential glassing point</span>
+            </>
+          ) : (
+            <>
+              <span><i className="legend-fill" /> Matching hunt unit</span>
+              <span><i className="legend-line" /> CPW GMU boundary</span>
+            </>
+          )}
+          {layers.forage && (
+            <>
+              <span><i className="legend-forage" /> CPW fall-use habitat</span>
+              <span><i className="legend-drought" /> Weekly drought stress</span>
+            </>
+          )}
+          {layers.humanFood && (
+            <>
+              <span><i className="legend-conflict" /> CPW conflict history</span>
+              <span><i className="legend-human-food" /> Developed camping</span>
+            </>
+          )}
+          {layers.access && <span><i className="legend-access" /> CPW / Walk-In access</span>}
+          {layers.land && <span><i className="legend-land" /> Land management</span>}
         </div>
-        <div className="map-hint">Click a unit to filter licenses</div>
+        <div className="map-hint">
+          {analysisMode ? 'Click a numbered target or its card' : 'Click a unit to filter licenses'}
+        </div>
       </div>
       <footer className="map-footer">
-        <span>Planning aid only — always verify the current CPW brochure, license, closures, and land ownership.</span>
+        <span>
+          Planning aid only — verify the current CPW brochure, property rules,
+          closures, discharge restrictions and land ownership.
+        </span>
         <nav aria-label="Official Colorado hunting resources">
           <a href="https://cpw.widen.net/s/n62qtjdsbw/biggame" target="_blank" rel="noreferrer">2026 brochure ↗</a>
           <a href="https://ndismaps.nrel.colostate.edu/index.html" target="_blank" rel="noreferrer">Hunting Atlas ↗</a>

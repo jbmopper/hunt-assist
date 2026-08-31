@@ -32,6 +32,16 @@ npm run check
   Atlas ArcGIS service.
 - Toggles CPW Public Access, Walk-In Access, and land-management overlays from
   that same Hunting Atlas service.
+- Adds two explicitly labeled bear-planning proxies: fall forage context from
+  CPW fall-concentration habitat plus the current U.S. Drought Monitor, and
+  human-food exposure from developed campgrounds/SWA campsites plus CPW
+  bear-human conflict areas.
+- Adds a BE012O1R targeting workspace with nine ranked public-land leads,
+  food-to-cover target pockets, modeled concealed-travel corridors,
+  terrain-screened glassing positions, current aerial imagery, explainable
+  component scores, copyable coordinates, and a GPX download.
+- Clusters developed camping locations and shows their manager, source vintage,
+  capacity/use details when available, and an official source link on click.
 - Saves starred hunt codes in browser storage on the current device.
 - Caches each CPW feed for five minutes and provides a manual refresh action.
 - Falls back to a clearly labeled five-row sample if the leftover feed is
@@ -43,7 +53,38 @@ The local JSON endpoint is:
 GET /api/licenses?source=leftover
 GET /api/licenses?source=reissue
 GET /api/licenses?source=leftover&refresh=1
+GET /api/bear-intel?layer=areas
+GET /api/bear-intel?layer=human-food
+GET /data/be012o1r-targets.geojson
+GET /data/be012o1r-targets.gpx
 ```
+
+## Rebuild the BE012O1R analysis
+
+The hosted app renders a precomputed target package. Rebuild it from current
+public sources with:
+
+```bash
+uv run \
+  --with numpy --with scipy --with rasterio --with shapely \
+  --with pyproj --with requests --with scikit-image --with pyogrio \
+  python scripts/build-bear-targets.py --as-of 2026-08-30
+```
+
+The batch step resolves the nine GMUs in BE012O1R and scores a roughly
+57-meter ground grid. The model combines LANDFIRE vegetation type/canopy,
+late-August Sentinel-2 NDVI and its two-year seasonal anomaly, USGS 3DEP
+terrain, CPW fall-concentration habitat, COTREX trail pressure, current
+drought, and federal surface-management geometry. It then finds separated
+local maxima, builds a least-cost route between plausible forage and secure
+cover, and tests possible glassing cells for terrain line of sight.
+
+The score is relative within this hunt area: forage 27%, food-cover interface
+22%, concealed travel 18%, pinch geometry 13%, glassing geometry 10%, and CPW
+fall habitat 10%, with up to a 13% trail-pressure penalty. It is a shortlist for
+ground-truthing, not a bear-presence probability. Use `--skip-satellite` only
+for offline pipeline debugging; final target packages should use the current
+imagery composite.
 
 ## Data sources
 
@@ -52,6 +93,15 @@ GET /api/licenses?source=leftover&refresh=1
 - [Colorado Hunting Atlas](https://ndismaps.nrel.colostate.edu/index.html)
 - [Hunting Atlas ArcGIS services](https://ndismaps.nrel.colostate.edu/arcgis/rest/services/HuntingAtlas)
 - [CPW maps and GIS downloads](https://cpw.state.co.us/maps-and-gis)
+- [CPW Species Activity Mapping web service](https://services5.arcgis.com/ttNGmDvKQA7oeDQ3/arcgis/rest/services/CPWSpeciesData/FeatureServer)
+- [U.S. Drought Monitor current map service](https://gis.fema.gov/arcgis/rest/services/Partner/Drought_Current/MapServer)
+- [USFS recreation-site inventory](https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_RecInfraRecreationSites_02/MapServer/0)
+- [BLM recreation facilities](https://gis.blm.gov/arcgis/rest/services/recreation/BLM_Natl_Recreation_Sites_Facilities/MapServer/8)
+- [USGS 3DEP elevation](https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer)
+- [LANDFIRE 2025 vegetation](https://landfire.gov/data/lf2025)
+- [Sentinel-2 Level-2A public COGs](https://registry.opendata.aws/sentinel-2-l2a-cogs/)
+- [USGS Geographic Names Information System](https://www.usgs.gov/tools/geographic-names-information-system-gnis)
+- [BLM Surface Management Agency](https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_LimitedScale/MapServer)
 
 The Widen asset URLs used by CPW are discovered through their public asset
 metadata response rather than hard-coding an expiring PDF download URL. PDF
@@ -64,6 +114,16 @@ the last verified cached copy when one is available. Synthetic regression
 fixtures cover wrapped rows, shifted layouts, notices, duplicates, missing
 fields, and changed headers. GitHub Actions runs tests, lint, and the production
 build on pushes and pull requests.
+
+The bear overlays deliberately avoid manufacturing a precise probability score.
+The forage proxy displays CPW's expert-mapped fall concentration polygons with
+the weekly drought surface as separate visual signals; drought is vegetation
+stress context, not a direct berry or acorn measurement. The human-food proxy
+combines mapped developed-camping locations with CPW's historical human-conflict
+areas. It does not claim that a campground has unsecured garbage, that a bear is
+currently present, or that a location is open to hunting or firearm discharge.
+The server normalizes and caches the public sources for six hours and returns a
+partial, visibly labeled result when one provider is unavailable.
 
 ## Scope and next steps
 

@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import BearTargetPanel from './components/bear-target-panel';
 import HuntMap from './components/hunt-map';
+import {
+  getBearTargets,
+  type BearTargetCollection,
+} from '@/lib/bear-targets';
 import { SAMPLE_HUNTS } from '@/lib/sample-hunts';
 import type {
   LicenseFeed,
@@ -13,6 +18,7 @@ type Species = 'All' | LicenseSpecies;
 type FeedState = 'error' | 'live' | 'loading' | 'stale';
 type SourceKind = LicenseFeed['source']['kind'];
 type HuntMethod = 'All' | 'A' | 'M' | 'R' | 'X';
+type WorkspaceMode = 'licenses' | 'targets';
 
 const speciesOptions: Species[] = [
   'All',
@@ -76,6 +82,7 @@ function MountainMark() {
 }
 
 export default function HuntPlanner() {
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('licenses');
   const [species, setSpecies] = useState<Species>('All');
   const [huntMethod, setHuntMethod] = useState<HuntMethod>('All');
   const [publicOnly, setPublicOnly] = useState(false);
@@ -95,6 +102,17 @@ export default function HuntPlanner() {
   const [savedCodes, setSavedCodes] = useState<string[]>([]);
   const [savedReady, setSavedReady] = useState(false);
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_HUNTS);
+  const [targetCollection, setTargetCollection] =
+    useState<BearTargetCollection | null>(null);
+  const [targetError, setTargetError] = useState<string | null>(null);
+  const [selectedTargetId, setSelectedTargetId] = useState<string | null>(
+    'target-1',
+  );
+
+  const bearTargets = useMemo(
+    () => getBearTargets(targetCollection),
+    [targetCollection],
+  );
 
   const availableSpecies = useMemo(
     () =>
@@ -150,6 +168,47 @@ export default function HuntPlanner() {
     publicOnly,
     savedOnly,
   ].filter(Boolean).length;
+
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (active && window.location.hash === '#bear-targets') {
+        setWorkspaceMode('targets');
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadTargets() {
+      try {
+        const response = await fetch('/data/be012o1r-targets.geojson', {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('The generated target file did not load.');
+        const collection = (await response.json()) as BearTargetCollection;
+        if (
+          collection.type !== 'FeatureCollection' ||
+          !Array.isArray(collection.features) ||
+          collection.metadata?.huntCode !== 'BE012O1R'
+        ) {
+          throw new Error('The generated target file is malformed.');
+        }
+        setTargetCollection(collection);
+        setTargetError(null);
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') return;
+        setTargetError((error as Error).message);
+      }
+    }
+
+    void loadTargets();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -264,10 +323,28 @@ export default function HuntPlanner() {
     setVisibleLimit(INITIAL_VISIBLE_HUNTS);
   }
 
+  function chooseWorkspace(nextMode: WorkspaceMode) {
+    setWorkspaceMode(nextMode);
+    setFiltersOpen(false);
+    window.history.replaceState(
+      null,
+      '',
+      nextMode === 'targets' ? '#bear-targets' : window.location.pathname,
+    );
+  }
+
   const handleSelectGmu = useCallback((gmu: number) => {
     setSelectedGmu(gmu);
     setVisibleLimit(INITIAL_VISIBLE_HUNTS);
   }, []);
+
+  const handleSelectTarget = useCallback((targetId: string) => {
+    setSelectedTargetId(targetId);
+  }, []);
+
+  const selectedTarget = bearTargets.find(
+    (target) => target.properties.targetId === selectedTargetId,
+  );
 
   const sourceTime = formatSourceTime(generatedAt);
   const feedLabel =
@@ -295,33 +372,89 @@ export default function HuntPlanner() {
         </a>
         <div className="topbar-actions">
           <span className="source-status">
-            <span className={`status-dot status-dot-${feedState}`} /> {feedLabel}
+            <span
+              className={
+                workspaceMode === 'targets'
+                  ? 'status-dot'
+                  : `status-dot status-dot-${feedState}`
+              }
+            />{' '}
+            {workspaceMode === 'targets'
+              ? `BE012O1R · imagery ${targetCollection?.metadata.imageryDate ?? 'loading'}`
+              : feedLabel}
           </span>
-          <button
-            className="refresh-button"
-            type="button"
-            onClick={refreshFeed}
-            disabled={feedState === 'loading'}
-          >
-            {feedState === 'loading' ? 'Refreshing…' : 'Refresh'}
-          </button>
+          {workspaceMode === 'licenses' && (
+            <button
+              className="refresh-button"
+              type="button"
+              onClick={refreshFeed}
+              disabled={feedState === 'loading'}
+            >
+              {feedState === 'loading' ? 'Refreshing…' : 'Refresh'}
+            </button>
+          )}
           <a
             className="text-button"
-            href={OFFICIAL_LIST_URL}
+            href={
+              workspaceMode === 'targets'
+                ? 'https://cpw.state.co.us/activities/hunting/big-game/hunting-bear/bear-field'
+                : OFFICIAL_LIST_URL
+            }
             target="_blank"
             rel="noreferrer"
           >
-            Official list ↗
+            {workspaceMode === 'targets' ? 'CPW bear field guide ↗' : 'Official list ↗'}
           </a>
         </div>
       </header>
 
       <div className="workspace" id="top">
-        <section className="sidebar" aria-label="License finder">
+        <section
+          className="sidebar"
+          aria-label={workspaceMode === 'targets' ? 'Bear targeting' : 'License finder'}
+        >
           <div className="sidebar-intro">
-            <p className="eyebrow">2026 Colorado licenses</p>
-            <h1>Find your hunt.</h1>
+            <p className="eyebrow">
+              {workspaceMode === 'targets'
+                ? 'BE012O1R targeting mode'
+                : '2026 Colorado licenses'}
+            </p>
+            <h1>
+              {workspaceMode === 'targets'
+                ? 'Shrink the country.'
+                : 'Find your hunt.'}
+            </h1>
           </div>
+
+          <div className="workspace-tabs" aria-label="Workspace mode">
+            <button
+              className={
+                workspaceMode === 'licenses'
+                  ? 'workspace-tab workspace-tab-active'
+                  : 'workspace-tab'
+              }
+              type="button"
+              onClick={() => chooseWorkspace('licenses')}
+              aria-pressed={workspaceMode === 'licenses'}
+            >
+              License finder
+            </button>
+            <button
+              className={
+                workspaceMode === 'targets'
+                  ? 'workspace-tab workspace-tab-active'
+                  : 'workspace-tab'
+              }
+              type="button"
+              onClick={() => chooseWorkspace('targets')}
+              aria-pressed={workspaceMode === 'targets'}
+            >
+              Bear targets <span>9</span>
+            </button>
+          </div>
+
+          {workspaceMode === 'licenses' ? (
+            <>
 
           <div className="feed-tabs" aria-label="License list">
             <button
@@ -607,12 +740,26 @@ export default function HuntPlanner() {
               </a>
             )}
           </div>
+            </>
+          ) : (
+            <BearTargetPanel
+              error={targetError}
+              imageryDate={targetCollection?.metadata.imageryDate ?? null}
+              onSelectTarget={handleSelectTarget}
+              selectedTargetId={selectedTargetId}
+              targets={bearTargets}
+            />
+          )}
         </section>
 
         <HuntMap
           hunts={filteredHunts}
+          analysisMode={workspaceMode === 'targets'}
           onSelectGmu={handleSelectGmu}
+          onSelectTarget={handleSelectTarget}
           selectedGmu={selectedGmu}
+          selectedTarget={selectedTarget ?? null}
+          targetCollection={targetCollection}
         />
       </div>
     </main>

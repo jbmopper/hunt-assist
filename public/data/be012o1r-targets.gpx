@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Colorado Hunt Finder" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>BE012O1R desk-scouting targets</name></metadata>
+  <wpt lat="40.070375" lon="-107.656827"><name>T01 · Sawmill Mountain</name><desc>Relative desk score 95/100; GMU 23; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
+  <wpt lat="39.851419" lon="-107.872422"><name>T02 · Bloodsworth Pond</name><desc>Relative desk score 94/100; GMU 23; Rocky Mountain Gambel Oak-Mixed Montane Shrubland. Ground-truth before committing a hunt.</desc></wpt>
+  <wpt lat="39.933093" lon="-107.531512"><name>T03 · Peltier Lake</name><desc>Relative desk score 93/100; GMU 24; Inter-Mountain Basins Montane Sagebrush Steppe. Ground-truth before committing a hunt.</desc></wpt>
+  <wpt lat="40.221272" lon="-107.344213"><name>T04 · Beaver Flat Tops</name><desc>Relative desk score 92/100; GMU 12; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
+  <wpt lat="40.206867" lon="-107.194643"><name>T05 · Bunker Creek</name><desc>Relative desk score 91/100; GMU 12; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
+  <wpt lat="40.226417" lon="-107.220245"><name>T06 · Gill Reservoir</name><desc>Relative desk score 91/100; GMU 231; Rocky Mountain Subalpine-Montane Mesic Meadow. Ground-truth before committing a hunt.</desc></wpt>
+  <wpt lat="40.255217" lon="-107.108405"><name>T07 · Trout Creek School Ditch</name><desc>Relative desk score 90/100; GMU 131; Rocky Mountain Gambel Oak-Mixed Montane Shrubland. Ground-truth before committing a hunt.</desc></wpt>
+  <wpt lat="39.773790" lon="-107.773383"><name>T08 · Buckskin Lake</name><desc>Relative desk score 90/100; GMU 33; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
+  <wpt lat="39.967181" lon="-107.540270"><name>T09 · Bailey Lake</name><desc>Relative desk score 89/100; GMU 24; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
+  <trk><name>Modeled concealed route for T01 · Sawmill Mountain</name><trkseg>
+    <trkpt lat="40.069344" lon="-107.657500" />
+    <trkpt lat="40.069344" lon="-107.659522" />
+    <trkpt lat="40.069344" lon="-107.661543" />
+  </trkseg></trk>
+  <trk><name>Modeled concealed route for T02 · Bloodsworth Pond</name><trkseg>
+    <trkpt lat="39.851936" lon="-107.873096" />
+    <trkpt lat="39.852453" lon="-107.875117" />
+    <trkpt lat="39.852453" lon="-107.877138" />
+  </trkseg></trk>
+  <trk><name>Modeled concealed route for T03 · Peltier Lake</name><trkseg>
+    <trkpt lat="39.933093" lon="-107.531512" />
+    <trkpt lat="39.934643" lon="-107.531512" />
+    <trkpt lat="39.936193" lon="-107.531512" />
+  </trkseg></trk>
+  <trk><name>Modeled concealed route for T04 · Beaver Flat Tops</name><trkseg>
+    <trkpt lat="40.221272" lon="-107.344213" />
+    <trkpt lat="40.219729" lon="-107.344213" />
+    <trkpt lat="40.218186" lon="-107.343539" />
+  </trkseg></trk>
+  <trk><name>Modeled concealed route for T05 · Bunker Creek</name><trkseg>
+    <trkpt lat="40.206352" lon="-107.194643" />
+    <trkpt lat="40.207896" lon="-107.194643" />
+    <trkpt lat="40.209439" lon="-107.194643" />
+  </trkseg></trk>
+  <trk><name>Modeled concealed route for T06 · Gill Reservoir</name><trkseg>
+    <trkpt lat="40.226931" lon="-107.220245" />
+    <trkpt lat="40.227445" lon="-107.222267" />
+    <trkpt lat="40.227445" lon="-107.224288" />
+  </trkseg></trk>
+  <trk><name>Modeled concealed route for T07 · Trout Creek School Ditch</name><trkseg>
+    <trkpt lat="40.254703" lon="-107.109753" />
+    <trkpt lat="40.256245" lon="-107.108405" />
+    <trkpt lat="40.257788" lon="-107.109079" />
+  </trkseg></trk>
+  <trk><name>Modeled concealed route for T08 · Buckskin Lake</name><trkseg>
+    <trkpt lat="39.774308" lon="-107.775404" />
+    <trkpt lat="39.774308" lon="-107.773383" />
+    <trkpt lat="39.774308" lon="-107.771362" />
+  </trkseg></trk>
+  <trk><name>Modeled concealed route for T09 · Bailey Lake</name><trkseg>
+    <trkpt lat="39.967181" lon="-107.538923" />
+    <trkpt lat="39.966665" lon="-107.536902" />
+    <trkpt lat="39.966665" lon="-107.534880" />
+  </trkseg></trk>
+</gpx>
