@@ -12,11 +12,12 @@ const collection = JSON.parse(
 ) as BearTargetCollection;
 const targets = getBearTargets(collection);
 const securityOptions = getBearSecurityOptions(collection);
+const cautionModes = ['rule-screen', 'quarter-mile', 'half-mile'] as const;
 
 test('ships a human-food BE012O1R target package', () => {
   assert.equal(collection.metadata.huntCode, 'BE012O1R');
   assert.equal(collection.metadata.mode, 'human-food');
-  assert.equal(collection.metadata.methodVersion, '0.4-source-footprints');
+  assert.equal(collection.metadata.methodVersion, '0.5-regulation-aware-approaches');
   assert.equal(collection.metadata.refinementResolutionM, 30);
   assert.equal(collection.metadata.sourceCautionRadiusMiles, 0.5);
   assert.deepEqual(collection.metadata.units, [12, 13, 23, 24, 25, 26, 33, 131, 231]);
@@ -28,10 +29,27 @@ test('ships a human-food BE012O1R target package', () => {
     targets.reduce((sum, target) => sum + target.properties.sourceCount, 0),
   );
   assert.equal(collection.metadata.securityOptionCount, securityOptions.length);
-  assert.equal(collection.metadata.sourcePortalCount, securityOptions.length);
-  assert.equal(collection.metadata.corridorBandCount, securityOptions.length);
+  assert.equal(collection.metadata.sourceBufferCount, targets.length * 2);
+  assert.equal(collection.metadata.legalExclusionCount, targets.length);
+  assert.ok(collection.metadata.roadExclusionCount > 0);
+  assert.ok(collection.metadata.accessExclusionCount > 0);
+  assert.equal(collection.metadata.sourcePortalCount, securityOptions.length * 3);
+  assert.equal(collection.metadata.corridorBandCount, securityOptions.length * 3);
+  assert.equal(collection.metadata.corridorInnerCount, securityOptions.length * 3);
+  assert.equal(collection.metadata.defaultCautionMode, 'half-mile');
+  assert.deepEqual(
+    collection.metadata.cautionProfiles.map((profile) => profile.id),
+    cautionModes,
+  );
+  assert.equal(collection.metadata.cautionProfiles[0].ruleBased, true);
+  assert.equal(collection.metadata.cautionProfiles[0].statutoryBoundary, false);
+  assert.equal(collection.metadata.legalScreenModel.facilityScreen.distanceYards, 150);
+  assert.equal(collection.metadata.legalScreenModel.roadScreen.distanceFeetEachSide, 50);
   assert.ok(collection.metadata.sources.hydrography);
   assert.ok(collection.metadata.sources.roads);
+  assert.ok(collection.metadata.sources.surfaceManagement);
+  assert.ok(collection.metadata.sources.federalDischargeRule);
+  assert.ok(collection.metadata.sources.currentForestAlerts);
   assert.match(collection.metadata.costModel.meaning, /lower is easier/i);
   assert.equal(collection.metadata.costModel.commonWeights.drainage, -0.34);
   assert.equal(collection.metadata.costModel.nightWeights.primaryRoad, 4.8);
@@ -87,6 +105,12 @@ test('pairs every source with two to five security areas and routes', () => {
       assert.ok(properties.approachDistanceMiles >= 0.49);
       assert.ok(properties.approachDistanceMiles <= 0.55);
       assert.equal(properties.sourceBufferMiles, 0.5);
+      assert.ok(properties.fullRouteMiles >= properties.routeMiles);
+      assert.equal(
+        Math.round(properties.routeMiles + properties.innerRouteMiles),
+        Math.round(properties.fullRouteMiles),
+      );
+      assert.deepEqual(Object.keys(properties.approachProfiles), cautionModes);
       assert.equal(properties.resolutionM, 30);
       assert.ok(properties.ensembleRoutes >= 2 && properties.ensembleRoutes <= 10);
       assert.ok(properties.portalCount >= 1 && properties.portalCount <= 10);
@@ -103,32 +127,38 @@ test('pairs every source with two to five security areas and routes', () => {
             feature.properties.securityId === properties.securityId,
         ),
       );
-      assert.ok(
-        collection.features.some(
-          (feature) =>
-            feature.properties.kind === 'source-portal' &&
-            feature.properties.securityId === properties.securityId,
-        ),
-      );
-      assert.ok(
-        collection.features.some(
-          (feature) =>
-            feature.properties.kind === 'corridor' &&
-            feature.properties.securityId === properties.securityId,
-        ),
-      );
-      assert.ok(
-        collection.features.some(
-          (feature) =>
-            feature.properties.kind === 'corridor-band' &&
-            feature.properties.securityId === properties.securityId,
-        ),
-      );
+      for (const cautionMode of cautionModes) {
+        for (const kind of ['source-portal', 'corridor', 'corridor-band', 'corridor-inner']) {
+          assert.ok(
+            collection.features.some(
+              (feature) =>
+                feature.properties.kind === kind &&
+                feature.properties.securityId === properties.securityId &&
+                feature.properties.cautionMode === cautionMode,
+            ),
+          );
+        }
+      }
     }
     assert.ok(
       collection.features.some(
         (feature) =>
           feature.properties.kind === 'source-buffer' &&
+          feature.properties.targetId === targetId,
+      ),
+    );
+    assert.equal(
+      collection.features.filter(
+        (feature) =>
+          feature.properties.kind === 'source-buffer' &&
+          feature.properties.targetId === targetId,
+      ).length,
+      2,
+    );
+    assert.ok(
+      collection.features.some(
+        (feature) =>
+          feature.properties.kind === 'legal-exclusion' &&
           feature.properties.targetId === targetId,
       ),
     );
@@ -154,5 +184,7 @@ test('exports context, security waypoints, and every route to GPX', () => {
   assert.match(gpx, /Human-food context — not a setup location/);
   assert.match(gpx, /Contributing human-food source record/);
   assert.match(gpx, /Analysis caution boundary — not statutory/);
+  assert.match(gpx, /Rule screen — verify true boundary and applicability/);
+  assert.match(gpx, /ANALYSIS ONLY inner approach/);
   assert.match(gpx, /Modeled security option — verify access and sign/);
 });

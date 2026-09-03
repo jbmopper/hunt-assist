@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CURRENT_DROUGHT_RASTER_TILES } from '@/lib/bear-intel';
 import type { LicenseRecord } from '@/lib/license-types';
 import type {
+  BearCautionMode,
   BearTargetCollection,
   BearTargetFeature,
 } from '@/lib/bear-targets';
@@ -31,12 +32,14 @@ import {
   addOrUpdateBearTargetLayers,
   BEAR_TARGET_INTERACTIVE_LAYERS,
   BEAR_TARGET_LAYER_IDS,
+  setBearCautionMode,
   setBearTargetSelection,
 } from './bear-target-map-layers';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 type HuntMapProps = {
   analysisMode: boolean;
+  cautionMode: BearCautionMode;
   hunts: LicenseRecord[];
   onSelectGmu: (gmu: number) => void;
   onSelectTarget: (targetId: string) => void;
@@ -74,6 +77,7 @@ function setLayerVisibility(
 
 export default function HuntMap({
   analysisMode,
+  cautionMode,
   hunts,
   onSelectGmu,
   onSelectTarget,
@@ -351,6 +355,7 @@ export default function HuntMap({
     if (!map || mapStatus !== 'ready' || !targetCollection) return;
 
     addOrUpdateBearTargetLayers(map, targetCollection);
+    setBearCautionMode(map, cautionMode);
 
     const onTargetClick = (
       event: MapMouseEvent & { features?: MapGeoJSONFeature[] },
@@ -378,7 +383,13 @@ export default function HuntMap({
         map.off('mouseleave', layerId, clearPointer);
       }
     };
-  }, [mapStatus, onSelectTarget, targetCollection]);
+  }, [cautionMode, mapStatus, onSelectTarget, targetCollection]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.getLayer('bear-corridors')) return;
+    setBearCautionMode(map, cautionMode);
+  }, [cautionMode, mapStatus, targetCollection]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -457,6 +468,11 @@ export default function HuntMap({
     : layers.forage
       ? 'Green marks CPW fall-use habitat; the weekly drought overlay adds current vegetation-stress context, not measured mast abundance.'
       : 'Purple areas show CPW conflict history; orange points show developed camping, not verified garbage access.';
+  const cautionLabel = cautionMode === 'rule-screen'
+    ? 'mapped 150 yd rule screen'
+    : cautionMode === 'quarter-mile'
+      ? '0.25 mi caution edge'
+      : '0.5 mi caution edge';
 
   return (
     <section
@@ -503,7 +519,7 @@ export default function HuntMap({
             </strong>
             <span>
               {analysisMode
-                ? 'Orange patches preserve clustered source records. Mint bands can choose any patch and stop at its half-mile caution edge; white dots mark modeled arrival portals.'
+                ? `Mint routes stop at the ${cautionLabel}; coral dashes retain the analysis-only continuation to the attraction footprint.`
                 : proxySummary}
             </span>
           </aside>
@@ -516,8 +532,14 @@ export default function HuntMap({
               <span><i className="legend-source-area" /> Attraction footprint</span>
               <span><i className="legend-security" /> Security option</span>
               <span><i className="legend-corridor" /> Near-optimal corridor band</span>
+              <span><i className="legend-corridor-inner" /> Analysis-only inner route</span>
               <span><i className="legend-source-portal" /> Modeled arrival portal</span>
-              <span><i className="legend-source-buffer" /> 0.5 mi caution ring</span>
+              <span><i className="legend-legal-exclusion" /> Mapped 150 yd rule screen</span>
+              {cautionMode !== 'rule-screen' && (
+                <span><i className="legend-source-buffer" /> {cautionLabel}</span>
+              )}
+              <span><i className="legend-road-exclusion" /> Road no-shot screen</span>
+              <span><i className="legend-access-exclusion" /> Private / unknown access</span>
             </>
           ) : (
             <>

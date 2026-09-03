@@ -6,6 +6,7 @@ import HuntMap from './components/hunt-map';
 import {
   getBearSecurityOptions,
   getBearTargets,
+  type BearCautionMode,
   type BearTargetCollection,
 } from '@/lib/bear-targets';
 import { SAMPLE_HUNTS } from '@/lib/sample-hunts';
@@ -109,6 +110,8 @@ export default function HuntPlanner() {
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(
     'target-1',
   );
+  const [bearCautionMode, setBearCautionMode] =
+    useState<BearCautionMode>('half-mile');
 
   const bearTargets = useMemo(
     () => getBearTargets(targetCollection),
@@ -748,7 +751,9 @@ export default function HuntPlanner() {
             </>
           ) : (
             <BearTargetPanel
+              cautionMode={bearCautionMode}
               error={targetError}
+              onChangeCautionMode={setBearCautionMode}
               onSelectTarget={handleSelectTarget}
               securityOptions={bearSecurityOptions}
               selectedTargetId={selectedTargetId}
@@ -759,6 +764,7 @@ export default function HuntPlanner() {
         </section>
 
         <HuntMap
+          cautionMode={bearCautionMode}
           hunts={filteredHunts}
           analysisMode={workspaceMode === 'targets'}
           onSelectGmu={handleSelectGmu}

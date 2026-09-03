@@ -52,6 +52,7 @@ from scipy.ndimage import (
 )
 from shapely import make_valid
 from shapely.geometry import LineString, Point, box, mapping, shape
+from shapely.ops import substring
 from shapely.ops import transform as transform_geometry
 from shapely.ops import unary_union
 from skimage.draw import line as raster_line
@@ -117,7 +118,32 @@ LANDFIRE_ROOT = (
 
 FINE_GROUND_RESOLUTION_M = 30.0
 FINE_TILE_RADIUS_M = 7_200.0
-SOURCE_CAUTION_RADIUS_M = 805.0
+FEDERAL_RECREATION_SETBACK_M = 150 * 0.9144
+SOURCE_CAUTION_RADIUS_M = 0.5 * 1_609.344
+DEFAULT_CAUTION_MODE = "half-mile"
+CAUTION_PROFILES = (
+    {
+        "id": "rule-screen",
+        "label": "Mapped rule screen",
+        "radiusM": FEDERAL_RECREATION_SETBACK_M,
+        "ruleBased": True,
+        "statutoryBoundary": False,
+    },
+    {
+        "id": "quarter-mile",
+        "label": "0.25 mi caution",
+        "radiusM": 0.25 * 1_609.344,
+        "ruleBased": False,
+        "statutoryBoundary": False,
+    },
+    {
+        "id": DEFAULT_CAUTION_MODE,
+        "label": "0.5 mi caution",
+        "radiusM": SOURCE_CAUTION_RADIUS_M,
+        "ruleBased": False,
+        "statutoryBoundary": False,
+    },
+)
 CORRIDOR_ENSEMBLE_MEMBERS = 10
 SOURCE_DEVELOPED_LINK_RADIUS_M = 450.0
 SOURCE_DEVELOPED_MAX_REACH_M = 1_000.0
@@ -161,6 +187,11 @@ SOURCE_LINKS = {
     "habitation": "https://www.usgs.gov/tools/geographic-names-information-system-gnis",
     "hydrography": "https://www.usgs.gov/national-hydrography/nhdplus-high-resolution",
     "roads": "https://tigerweb.geo.census.gov/tigerweb/",
+    "surfaceManagement": "https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_LimitedScale/MapServer",
+    "federalDischargeRule": "https://www.ecfr.gov/current/title-36/chapter-II/part-261/subpart-A/section-261.10",
+    "coloradoWildlifeStatutes": "https://olls.info/crs/crs2026-title-33.htm",
+    "coloradoHuntingRegulations": "https://cpw.state.co.us/sites/default/files/dam/nucdborcsb/ch-w0-as-approved-march-2026.pdf",
+    "currentForestAlerts": "https://www.fs.usda.gov/r02/whiteriver/alerts",
 }
 
 
@@ -718,6 +749,43 @@ def public_land_mask(
         all_touched=True,
     ).astype(bool)
     return mask, warnings
+
+
+def private_or_unknown_land_mask(
+    session: requests.Session,
+    bbox: tuple[float, float, float, float],
+    transform: rasterio.Affine,
+    shape_: tuple[int, int],
+    projector: Transformer,
+) -> tuple[np.ndarray, list[str]]:
+    """Rasterize the BLM limited-scale Private or Unknown ownership class.
+
+    This is an access-screening layer, not parcel evidence. The source combines
+    private and unknown ownership and is too coarse to establish permission.
+    """
+    try:
+        collection = arcgis_geojson(
+            session,
+            f"{BLM_SMA}/31",
+            bbox=bbox,
+            out_fields="ADMIN_AGENCY_CODE,ADMIN_UNIT_NAME",
+            max_offset=0.00005,
+        )
+        return (
+            rasterize_collection(
+                collection,
+                transform,
+                shape_,
+                projector=projector,
+                value=1,
+            ).astype(bool),
+            [],
+        )
+    except Exception as error:
+        return (
+            np.zeros(shape_, dtype=bool),
+            [f"Private-or-unknown ownership screen unavailable: {error}"],
+        )
 
 
 def terrain_scores(
@@ -1367,13 +1435,12 @@ def route_agreement_score(
 def corridor_route_ensemble(
     security: tuple[int, int],
     source_mask: np.ndarray,
-    caution_mask: np.ndarray,
     night_cost: np.ndarray,
     dawn_cost: np.ndarray,
     pixel_ground_m: float,
     *,
     seed: int,
-) -> tuple[list[tuple[int, int]], list[list[tuple[int, int]]], int, int]:
+) -> tuple[list[tuple[int, int]], list[list[tuple[int, int]]], int]:
     """Build deterministic night/dawn and perturbed near-optimal route hypotheses."""
     night_routing = night_cost.copy()
     dawn_routing = dawn_cost.copy()
@@ -1390,22 +1457,19 @@ def corridor_route_ensemble(
 
     night_full = route_to_mask(security, night_destination, night_routing)
     dawn_full = route_to_mask(security, dawn_destination, dawn_routing)
-    night = trim_route_to_caution_mask(
+    agreement = route_agreement_score(
         night_full,
-        caution_mask,
-    )
-    dawn = trim_route_to_caution_mask(
         dawn_full,
-        caution_mask,
+        night_cost.shape,
+        pixel_ground_m,
     )
-    agreement = route_agreement_score(night, dawn, night_cost.shape, pixel_ground_m)
 
     consensus = 0.45 * night_routing + 0.55 * dawn_routing
     representative = min(
-        (night, dawn),
+        (night_full, dawn_full),
         key=lambda route: route_cost(route, consensus, pixel_ground_m),
     )
-    routes: list[list[tuple[int, int]]] = [night, dawn]
+    routes: list[list[tuple[int, int]]] = [night_full, dawn_full]
     rng = np.random.default_rng(seed)
     attempts = max(0, CORRIDOR_ENSEMBLE_MEMBERS - len(routes))
     for index in range(attempts):
@@ -1418,21 +1482,12 @@ def corridor_route_ensemble(
         if standard_deviation > 0:
             noise /= standard_deviation
         perturbed = np.clip(base * np.exp(0.09 * noise), 0.05, 1_000_000)
-        full_route = route_to_mask(security, source_mask, perturbed)
-        route = trim_route_to_caution_mask(
-            full_route,
-            caution_mask,
-        )
+        route = route_to_mask(security, source_mask, perturbed)
         if len(route) < 2:
             continue
         if tuple(route) not in {tuple(existing) for existing in routes}:
             routes.append(route)
-    return (
-        representative,
-        routes,
-        agreement,
-        distinct_arrival_portals(routes, pixel_ground_m),
-    )
+    return representative, routes, agreement
 
 
 def load_human_food_sources(
@@ -2016,18 +2071,19 @@ def route_line_projected(
     return LineString(coordinates)
 
 
-def route_geometry_outside_zone(
+def route_geometry_split_at_zone(
     transform: rasterio.Affine,
     inverse_transformer: Transformer,
     route: list[tuple[int, int]],
     excluded_projected: Any,
-) -> tuple[LineString, Point, LineString]:
-    """Clip a raster route to the exact displayed exclusion boundary.
+) -> tuple[LineString, LineString, Point, LineString, LineString]:
+    """Split a raster route at the exact displayed exclusion boundary.
 
     Raster cell centers can sit just outside a caution mask while the segment
     between them clips the smooth displayed polygon. Keeping the component that
     contains the security start makes the map line and arrival portal agree with
-    the visible caution edge rather than differing by part of a 30 m cell.
+    the visible caution edge rather than differing by part of a 30 m cell. The
+    remainder is retained as an explicitly analysis-only inner approach.
     """
     projected_route = route_line_projected(transform, route)
     outside = projected_route.difference(excluded_projected)
@@ -2053,10 +2109,16 @@ def route_geometry_outside_zone(
         coordinates.reverse()
     selected = LineString(coordinates)
     endpoint = Point(selected.coords[-1])
+    split_distance = projected_route.project(endpoint)
+    inner = substring(projected_route, split_distance, projected_route.length)
+    if inner.geom_type == "Point":
+        inner = LineString([inner.coords[0], inner.coords[0]])
     return (
         transform_geometry(inverse_transformer.transform, selected),
+        transform_geometry(inverse_transformer.transform, inner),
         endpoint,
         selected,
+        inner,
     )
 
 
@@ -2248,8 +2310,10 @@ def write_human_food_gpx(
     sources: list[dict[str, Any]],
     source_members: list[dict[str, Any]],
     source_buffers: list[dict[str, Any]],
+    legal_exclusions: list[dict[str, Any]],
     security_options: list[dict[str, Any]],
     corridors: list[dict[str, Any]],
+    inner_corridors: list[dict[str, Any]],
 ) -> None:
     from xml.sax.saxutils import escape
 
@@ -2302,10 +2366,31 @@ def write_human_food_gpx(
         )
         for part_index, polygon in enumerate(polygons, start=1):
             suffix = f" · part {part_index}" if len(polygons) > 1 else ""
+            radius_label = f"{properties['radiusMiles']:.2g} mi"
             lines.append(
                 f"  <trk><name>{escape(properties['sourceName'])} "
-                f"0.5 mi caution edge{suffix}</name>"
+                f"{radius_label} caution edge{suffix}</name>"
                 "<type>Analysis caution boundary — not statutory</type><trkseg>"
+            )
+            for longitude, latitude in polygon.exterior.coords:
+                lines.append(
+                    f'    <trkpt lat="{latitude:.6f}" lon="{longitude:.6f}" />'
+                )
+            lines.append("  </trkseg></trk>")
+    for feature in legal_exclusions:
+        properties = feature["properties"]
+        geometry = shape(feature["geometry"])
+        polygons = (
+            [geometry]
+            if geometry.geom_type == "Polygon"
+            else [part for part in geometry.geoms if part.geom_type == "Polygon"]
+        )
+        for part_index, polygon in enumerate(polygons, start=1):
+            suffix = f" · part {part_index}" if len(polygons) > 1 else ""
+            lines.append(
+                f"  <trk><name>{escape(properties['sourceName'])} "
+                f"mapped rule screen{suffix}</name>"
+                "<type>Rule screen — verify true boundary and applicability</type><trkseg>"
             )
             for longitude, latitude in polygon.exterior.coords:
                 lines.append(
@@ -2314,7 +2399,20 @@ def write_human_food_gpx(
             lines.append("  </trkseg></trk>")
     for feature in corridors:
         properties = feature["properties"]
-        lines.append(f"  <trk><name>{escape(properties['name'])}</name><trkseg>")
+        lines.append(
+            f"  <trk><name>{escape(properties['name'])}</name>"
+            "<type>Modeled outer corridor — not an observed trail</type><trkseg>"
+        )
+        for longitude, latitude in feature["geometry"]["coordinates"]:
+            lines.append(f'    <trkpt lat="{latitude:.6f}" lon="{longitude:.6f}" />')
+        lines.append("  </trkseg></trk>")
+    for feature in inner_corridors:
+        properties = feature["properties"]
+        lines.append(
+            f"  <trk><name>{escape(properties['name'])}</name>"
+            "<type>ANALYSIS ONLY inner approach — not a setup or shot recommendation</type>"
+            "<trkseg>"
+        )
         for longitude, latitude in feature["geometry"]["coordinates"]:
             lines.append(f'    <trkpt lat="{latitude:.6f}" lon="{longitude:.6f}" />')
         lines.append("  </trkseg></trk>")
@@ -2446,6 +2544,14 @@ def build_local_human_refinement(
         shape_,
         forward,
     )
+    private_or_unknown, ownership_warnings = private_or_unknown_land_mask(
+        session,
+        bbox,
+        transform,
+        shape_,
+        forward,
+    )
+    warnings.extend(ownership_warnings)
     water = landfire_water | movement_masks["waterbody"]
     source_mask, source_member_cells = source_footprint_mask(
         source_members,
@@ -2626,6 +2732,12 @@ def build_local_human_refinement(
             "huntMask": hunt_mask,
             "gmu": gmu_raster,
             "public": public_mask,
+            "privateOrUnknown": private_or_unknown,
+            "roadRule": (
+                movement_masks["primaryRoad"]
+                | movement_masks["secondaryRoad"]
+                | movement_masks["localRoad"]
+            ),
             "elevation": elevation,
             "slope": slope,
             "cover": cover_continuity,
@@ -2838,9 +2950,15 @@ def build_human_food_analysis(
     source_member_features: list[dict[str, Any]] = []
     source_buffer_features: list[dict[str, Any]] = []
     source_area_features: list[dict[str, Any]] = []
+    legal_exclusion_features: list[dict[str, Any]] = []
+    road_exclusion_features: list[dict[str, Any]] = []
+    access_exclusion_features: list[dict[str, Any]] = []
     source_portal_features: list[dict[str, Any]] = []
     security_features: list[dict[str, Any]] = []
     corridor_features: list[dict[str, Any]] = []
+    corridor_inner_features: list[dict[str, Any]] = []
+    default_corridor_features: list[dict[str, Any]] = []
+    default_corridor_inner_features: list[dict[str, Any]] = []
     for feature in units_collection.get("features", []):
         features.append(
             as_feature(
@@ -2875,15 +2993,37 @@ def build_human_food_analysis(
         source_mask = refinement["sourceMask"]
         (
             source_area_geometry,
-            caution_geometry,
+            default_caution_geometry,
             projected_source_area,
-            projected_caution,
+            projected_default_caution,
         ) = source_zone_geometries(
             source_mask,
             fine_transform,
             fine_inverse,
             fine_pixel_ground_m,
         )
+        map_units_per_ground_m = abs(fine_transform.a) / fine_pixel_ground_m
+        projected_caution_zones: dict[str, Any] = {}
+        caution_zone_geometries: dict[str, Any] = {}
+        for profile in CAUTION_PROFILES:
+            mode = str(profile["id"])
+            if mode == DEFAULT_CAUTION_MODE:
+                projected_zone = projected_default_caution
+                zone_geometry = default_caution_geometry
+            else:
+                projected_zone = projected_source_area.buffer(
+                    float(profile["radiusM"]) * map_units_per_ground_m,
+                    resolution=24,
+                ).simplify(
+                    10 * map_units_per_ground_m,
+                    preserve_topology=True,
+                )
+                zone_geometry = transform_geometry(
+                    fine_inverse.transform,
+                    projected_zone,
+                )
+            projected_caution_zones[mode] = projected_zone
+            caution_zone_geometries[mode] = zone_geometry
         footprint_acres = (
             float(np.count_nonzero(source_mask))
             * fine_pixel_ground_m**2
@@ -2916,8 +3056,8 @@ def build_human_food_analysis(
             f"Human-food priority {relative_score}/100; {source['sourceCount']} records "
             f"form {footprint_parts} mapped attraction "
             f"{'patch' if footprint_parts == 1 else 'patches'} covering "
-            f"{footprint_acres:.0f} acres. Routes stop half a mile from the full "
-            "footprint; verify fresh sign and legal access."
+            f"{footprint_acres:.0f} acres. Compare the mapped rule screen, 0.25 mi, "
+            "or 0.5 mi approach boundary; verify fresh sign and legal access."
         )
         target_properties = {
             "kind": "target",
@@ -2983,22 +3123,53 @@ def build_human_food_analysis(
         )
         source_area_features.append(source_area_feature)
         features.append(source_area_feature)
-        source_buffer_feature = as_feature(
-            caution_geometry,
+        legal_exclusion_feature = as_feature(
+            caution_zone_geometries["rule-screen"],
             {
-                "kind": "source-buffer",
+                "kind": "legal-exclusion",
                 "targetId": target_id,
                 "sourceName": source["name"],
-                "radiusMiles": round(SOURCE_CAUTION_RADIUS_M / 1_609.344, 2),
-                "bufferBasis": "distance from the full source-attraction footprint",
+                "radiusYards": 150,
+                "ruleBasis": (
+                    "36 CFR 261.10(d) where applicable; conservative screening "
+                    "distance elsewhere"
+                ),
+                "applicability": (
+                    "The federal 150-yard rule applies on National Forest System "
+                    "lands; non-federal sites require their own property and local rules."
+                ),
+                "boundaryStatus": "modeled footprint proxy; not a surveyed facility boundary",
                 "meaning": (
-                    "Analysis caution radius around the complete attraction footprint; "
-                    "routes stop here. This is not a statutory hunting boundary."
+                    "Mapped 150-yard rule-based screen around the modeled facility/"
+                    "occupied-area footprint. Applicable jurisdiction, rules, and the "
+                    "true site boundary must still be verified."
                 ),
             },
         )
-        source_buffer_features.append(source_buffer_feature)
-        features.append(source_buffer_feature)
+        legal_exclusion_features.append(legal_exclusion_feature)
+        features.append(legal_exclusion_feature)
+        for profile in CAUTION_PROFILES:
+            mode = str(profile["id"])
+            if mode == "rule-screen":
+                continue
+            radius_m = float(profile["radiusM"])
+            source_buffer_feature = as_feature(
+                caution_zone_geometries[mode],
+                {
+                    "kind": "source-buffer",
+                    "targetId": target_id,
+                    "sourceName": source["name"],
+                    "cautionMode": mode,
+                    "radiusMiles": round(radius_m / 1_609.344, 2),
+                    "bufferBasis": "distance from the full source-attraction footprint",
+                    "meaning": (
+                        "User-selected analysis caution radius around the complete "
+                        "attraction footprint. This is not a statutory boundary."
+                    ),
+                },
+            )
+            source_buffer_features.append(source_buffer_feature)
+            features.append(source_buffer_feature)
 
         for member_index, member in enumerate(source["members"], start=1):
             member_feature = as_feature(
@@ -3018,6 +3189,7 @@ def build_human_food_analysis(
             source_member_features.append(member_feature)
             features.append(member_feature)
 
+        route_review_lines: list[LineString] = []
         for option_index, security_cell in enumerate(security_cells, start=1):
             option_label = chr(64 + option_index)
             security_id = f"{target_id}-security-{option_index}"
@@ -3032,62 +3204,104 @@ def build_human_food_analysis(
                 if nearby
                 else f"GMU {int(refinement['gmu'][security_cell])} cover"
             )
-            route, ensemble_routes, route_agreement, portal_count = (
-                corridor_route_ensemble(
-                    security_cell,
-                    source_mask,
-                    refinement["sourceCautionMask"],
-                    refinement["nightCost"],
-                    refinement["dawnCost"],
-                    fine_pixel_ground_m,
-                    seed=rank * 100 + option_index,
-                )
+            route, ensemble_routes, route_agreement = corridor_route_ensemble(
+                security_cell,
+                source_mask,
+                refinement["nightCost"],
+                refinement["dawnCost"],
+                fine_pixel_ground_m,
+                seed=rank * 100 + option_index,
+            )
+            route_review_lines.extend(
+                route_line_projected(fine_transform, candidate)
+                for candidate in ensemble_routes
             )
             route_rows = np.array([cell[0] for cell in route], dtype=int)
             route_columns = np.array([cell[1] for cell in route], dtype=int)
             direct_distance_m = float(
                 refinement["sourceDistanceM"][security_cell]
             )
-            (
-                corridor_geometry,
-                approach_projected,
-                projected_corridor,
-            ) = route_geometry_outside_zone(
-                fine_transform,
-                fine_inverse,
-                route,
-                projected_caution,
-            )
-            map_units_per_ground_m = abs(fine_transform.a) / fine_pixel_ground_m
-            modeled_route_m = projected_corridor.length / map_units_per_ground_m
-            approach_cell = route[-1]
-            approach_distance_m = (
-                approach_projected.distance(projected_source_area)
-                / map_units_per_ground_m
-            )
-            approach_point = Point(
-                *fine_inverse.transform(
-                    approach_projected.x,
-                    approach_projected.y,
-                )
-            )
+            destination_cell = route[-1]
             arrival_member, _ = min(
                 refinement["sourceMemberCells"],
                 key=lambda item: math.hypot(
-                    approach_cell[0] - item[1][0],
-                    approach_cell[1] - item[1][1],
+                    destination_cell[0] - item[1][0],
+                    destination_cell[1] - item[1][1],
                 ),
             )
             arrival_source = str(arrival_member["name"])
             option_name = f"H{rank:02d}{option_label} · {nearby_name}"
+            profile_outputs: dict[str, dict[str, Any]] = {}
+            for profile in CAUTION_PROFILES:
+                mode = str(profile["id"])
+                radius_m = float(profile["radiusM"])
+                (
+                    corridor_geometry,
+                    inner_geometry,
+                    approach_projected,
+                    projected_corridor,
+                    projected_inner,
+                ) = route_geometry_split_at_zone(
+                    fine_transform,
+                    fine_inverse,
+                    route,
+                    projected_caution_zones[mode],
+                )
+                approach_point = Point(
+                    *fine_inverse.transform(
+                        approach_projected.x,
+                        approach_projected.y,
+                    )
+                )
+                caution_mask = refinement["sourceDistanceM"] <= radius_m
+                clipped_ensemble = [
+                    trim_route_to_caution_mask(candidate, caution_mask)
+                    for candidate in ensemble_routes
+                ]
+                profile_outputs[mode] = {
+                    "label": str(profile["label"]),
+                    "radiusM": radius_m,
+                    "boundaryMiles": round(radius_m / 1_609.344, 2),
+                    "outerRouteMiles": round(
+                        projected_corridor.length
+                        / map_units_per_ground_m
+                        / 1_609.344,
+                        2,
+                    ),
+                    "innerRouteMiles": round(
+                        projected_inner.length
+                        / map_units_per_ground_m
+                        / 1_609.344,
+                        2,
+                    ),
+                    "portalCount": distinct_arrival_portals(
+                        clipped_ensemble,
+                        fine_pixel_ground_m,
+                    ),
+                    "corridorGeometry": corridor_geometry,
+                    "innerGeometry": inner_geometry,
+                    "approachPoint": approach_point,
+                    "projectedZone": projected_caution_zones[mode],
+                }
+            default_profile = profile_outputs[DEFAULT_CAUTION_MODE]
             option_summary = (
                 f"{direct_distance_m / 1_609.344:.1f} mi from the nearest source patch; "
-                f"representative corridor {modeled_route_m / 1_609.344:.1f} mi to the "
-                f"{approach_distance_m / 1_609.344:.1f} mi footprint caution edge "
+                f"representative corridor {default_profile['outerRouteMiles']:.1f} mi to the "
+                f"0.5 mi footprint caution edge "
                 f"near {arrival_source}; "
                 f"security score {round(float(refinement['securityScore'][security_cell]) * 100)}/100. "
                 "Verify ownership, closures, current sign, wind, and safe shooting conditions."
             )
+            approach_profiles = {
+                mode: {
+                    "label": output["label"],
+                    "boundaryMiles": output["boundaryMiles"],
+                    "outerRouteMiles": output["outerRouteMiles"],
+                    "innerRouteMiles": output["innerRouteMiles"],
+                    "portalCount": output["portalCount"],
+                }
+                for mode, output in profile_outputs.items()
+            }
             common_properties = {
                 "targetId": target_id,
                 "securityId": security_id,
@@ -3096,7 +3310,7 @@ def build_human_food_analysis(
                 "name": option_name,
                 "sourceName": source["name"],
                 "arrivalSource": arrival_source,
-                "portalCount": portal_count,
+                "portalCount": default_profile["portalCount"],
                 "gmu": int(refinement["gmu"][security_cell]),
                 "securityScore": round(
                     float(refinement["securityScore"][security_cell]) * 100
@@ -3124,9 +3338,15 @@ def build_human_food_analysis(
                     * 100
                 ),
                 "distanceMiles": round(direct_distance_m / 1_609.344, 2),
-                "routeMiles": round(modeled_route_m / 1_609.344, 2),
-                "approachDistanceMiles": round(approach_distance_m / 1_609.344, 2),
+                "routeMiles": default_profile["outerRouteMiles"],
+                "fullRouteMiles": round(
+                    route_length_m(route, fine_pixel_ground_m) / 1_609.344,
+                    2,
+                ),
+                "innerRouteMiles": default_profile["innerRouteMiles"],
+                "approachDistanceMiles": default_profile["boundaryMiles"],
                 "sourceBufferMiles": round(SOURCE_CAUTION_RADIUS_M / 1_609.344, 2),
+                "approachProfiles": approach_profiles,
                 "routeAgreement": route_agreement,
                 "ensembleRoutes": len(ensemble_routes),
                 "resolutionM": round(fine_pixel_ground_m),
@@ -3160,54 +3380,136 @@ def build_human_food_analysis(
             )
             security_features.append(security_feature)
             features.append(security_feature)
-            portal_feature = as_feature(
-                approach_point,
-                {
-                    "kind": "source-portal",
+            for profile in CAUTION_PROFILES:
+                mode = str(profile["id"])
+                output = profile_outputs[mode]
+                variant_properties = {
                     **common_properties,
-                    "name": f"{option_name} modeled arrival portal",
-                    "meaning": (
-                        "Representative corridor endpoint on the analysis caution edge; "
-                        "not an observed crossing or setup recommendation."
-                    ),
-                },
-            )
-            source_portal_features.append(portal_feature)
-            features.append(portal_feature)
-            features.append(
-                as_feature(
-                    corridor_band_geometry(
-                        fine_transform,
-                        fine_inverse,
-                        ensemble_routes,
-                        fine_pixel_ground_m,
-                        projected_caution,
-                    ),
+                    "cautionMode": mode,
+                    "cautionLabel": output["label"],
+                    "routeMiles": output["outerRouteMiles"],
+                    "innerRouteMiles": output["innerRouteMiles"],
+                    "approachDistanceMiles": output["boundaryMiles"],
+                    "sourceBufferMiles": output["boundaryMiles"],
+                    "portalCount": output["portalCount"],
+                }
+                portal_feature = as_feature(
+                    output["approachPoint"],
                     {
-                        "kind": "corridor-band",
-                        **common_properties,
-                        "name": f"{option_name} near-optimal corridor band",
+                        "kind": "source-portal",
+                        **variant_properties,
+                        "name": f"{option_name} modeled arrival portal",
                         "meaning": (
-                            "Envelope of night, dawn, and perturbed near-optimal paths; "
-                            "not an observed animal trail."
+                            "Representative corridor intersection with the selected "
+                            "screen; not an observed crossing or setup recommendation."
                         ),
                     },
                 )
-            )
-            corridor_feature = as_feature(
-                corridor_geometry,
-                {
-                    "kind": "corridor",
-                    **common_properties,
-                    "name": f"{option_name} → source-footprint caution edge",
-                    "meaning": (
-                        "Representative route within the broader uncertainty band; "
-                        "not an observed animal trail."
-                    ),
-                },
-            )
-            corridor_features.append(corridor_feature)
-            features.append(corridor_feature)
+                source_portal_features.append(portal_feature)
+                features.append(portal_feature)
+                features.append(
+                    as_feature(
+                        corridor_band_geometry(
+                            fine_transform,
+                            fine_inverse,
+                            ensemble_routes,
+                            fine_pixel_ground_m,
+                            output["projectedZone"],
+                        ),
+                        {
+                            "kind": "corridor-band",
+                            **variant_properties,
+                            "name": f"{option_name} near-optimal corridor band",
+                            "meaning": (
+                                "Envelope of night, dawn, and perturbed near-optimal paths "
+                                "outside the selected screen; not an observed animal trail."
+                            ),
+                        },
+                    )
+                )
+                corridor_feature = as_feature(
+                    output["corridorGeometry"],
+                    {
+                        "kind": "corridor",
+                        **variant_properties,
+                        "name": f"{option_name} → {output['label']}",
+                        "meaning": (
+                            "Representative route outside the selected screen; not an "
+                            "observed animal trail or setup recommendation."
+                        ),
+                    },
+                )
+                corridor_features.append(corridor_feature)
+                features.append(corridor_feature)
+                inner_feature = as_feature(
+                    output["innerGeometry"],
+                    {
+                        "kind": "corridor-inner",
+                        **variant_properties,
+                        "name": f"{option_name} · inner approach (analysis only)",
+                        "analysisOnly": True,
+                        "meaning": (
+                            "Modeled continuation inside the selected screen. Analysis "
+                            "only: this is not a legal setup, shot, or access recommendation."
+                        ),
+                    },
+                )
+                corridor_inner_features.append(inner_feature)
+                features.append(inner_feature)
+                if mode == DEFAULT_CAUTION_MODE:
+                    default_corridor_features.append(corridor_feature)
+                    default_corridor_inner_features.append(inner_feature)
+
+        review_zone = unary_union(route_review_lines).buffer(
+            360 * map_units_per_ground_m
+        ).union(projected_default_caution)
+        if np.any(refinement["roadRule"]):
+            projected_roads = raster_mask_projected_geometry(
+                refinement["roadRule"],
+                fine_transform,
+            ).intersection(review_zone).buffer(0)
+            if not projected_roads.is_empty:
+                road_feature = as_feature(
+                    transform_geometry(fine_inverse.transform, projected_roads),
+                    {
+                        "kind": "road-exclusion",
+                        "targetId": target_id,
+                        "sourceName": source["name"],
+                        "ruleBasis": (
+                            "Colorado road-discharge rules; 50 ft each side where the "
+                            "road classification is covered"
+                        ),
+                        "boundaryStatus": "30 m rasterized Census road-centerline screen",
+                        "meaning": (
+                            "No-shot road screen near modeled approaches. Road class, "
+                            "jurisdiction, and exact centerline must be field-verified."
+                        ),
+                    },
+                )
+                road_exclusion_features.append(road_feature)
+                features.append(road_feature)
+        if np.any(refinement["privateOrUnknown"]):
+            projected_access = raster_mask_projected_geometry(
+                refinement["privateOrUnknown"],
+                fine_transform,
+            ).intersection(review_zone).buffer(0)
+            if not projected_access.is_empty:
+                access_feature = as_feature(
+                    transform_geometry(fine_inverse.transform, projected_access),
+                    {
+                        "kind": "access-exclusion",
+                        "targetId": target_id,
+                        "sourceName": source["name"],
+                        "ruleBasis": "Colorado private-land permission requirement",
+                        "boundaryStatus": "BLM limited-scale Private or Unknown class",
+                        "meaning": (
+                            "Treat as closed for planning until ownership and permission "
+                            "are verified against a current parcel source."
+                        ),
+                    },
+                )
+                access_exclusion_features.append(access_feature)
+                features.append(access_feature)
 
     metadata = {
         "huntCode": HUNT_CODE,
@@ -3218,7 +3520,7 @@ def build_human_food_analysis(
         "imageryDate": None,
         "droughtUpdated": None,
         "mode": "human-food",
-        "methodVersion": "0.4-source-footprints",
+        "methodVersion": "0.5-regulation-aware-approaches",
         "scoreMeaning": (
             "Relative human-food priority led by CPW historical conflict overlap; "
             "multipart source footprints and corridor bands are modeled hypotheses, "
@@ -3228,15 +3530,31 @@ def build_human_food_analysis(
         "sourceCount": len(source_features),
         "sourceMemberCount": len(source_member_features),
         "sourceAreaCount": len(source_area_features),
+        "sourceBufferCount": len(source_buffer_features),
+        "legalExclusionCount": len(legal_exclusion_features),
+        "roadExclusionCount": len(road_exclusion_features),
+        "accessExclusionCount": len(access_exclusion_features),
         "sourcePortalCount": len(source_portal_features),
         "securityOptionCount": len(security_features),
         "corridorBandCount": len(corridor_features),
+        "corridorInnerCount": len(corridor_inner_features),
         "screeningResolutionM": round(pixel_ground_m),
         "refinementResolutionM": round(FINE_GROUND_RESOLUTION_M),
         "sourceCautionRadiusMiles": round(
             SOURCE_CAUTION_RADIUS_M / 1_609.344,
             2,
         ),
+        "defaultCautionMode": DEFAULT_CAUTION_MODE,
+        "cautionProfiles": [
+            {
+                "id": profile["id"],
+                "label": profile["label"],
+                "radiusMiles": round(float(profile["radiusM"]) / 1_609.344, 2),
+                "ruleBased": profile["ruleBased"],
+                "statutoryBoundary": profile["statutoryBoundary"],
+            }
+            for profile in CAUTION_PROFILES
+        ],
         "corridorEnsembleMembers": CORRIDOR_ENSEMBLE_MEMBERS,
         "corridorScenarios": ["night approach", "dawn return"],
         "sourceFootprintModel": {
@@ -3253,9 +3571,43 @@ def build_human_food_analysis(
             "developedPatchLinkRadiusM": SOURCE_DEVELOPED_LINK_RADIUS_M,
             "developedPatchMaximumReachM": SOURCE_DEVELOPED_MAX_REACH_M,
             "routeDestination": (
-                "least-cost reachable cell on any source-footprint patch; displayed "
-                "routes stop at the footprint-based caution edge"
+                "least-cost reachable cell on any source-footprint patch; the full "
+                "route is retained, then split into an outer corridor and an explicitly "
+                "analysis-only inner approach at the selected screen"
             ),
+        },
+        "legalScreenModel": {
+            "meaning": (
+                "Planning screens for facility/occupied areas, roads, and private-or-"
+                "unknown ownership. They are hard map warnings, not a legal determination."
+            ),
+            "facilityScreen": {
+                "distanceYards": 150,
+                "basis": (
+                    "36 CFR 261.10(d) on National Forest System lands; conservative "
+                    "screening distance elsewhere"
+                ),
+                "applicability": (
+                    "Non-federal sites and local jurisdictions may use different rules"
+                ),
+                "boundaryStatus": (
+                    "buffered modeled attraction footprint; campground and building "
+                    "inventories do not provide surveyed boundaries"
+                ),
+            },
+            "roadScreen": {
+                "distanceFeetEachSide": 50,
+                "basis": "Colorado 2026 hunting regulations and road-discharge statutes",
+                "boundaryStatus": "30 m rasterization of Census road centerlines",
+            },
+            "ownershipScreen": {
+                "basis": "Colorado private-land permission requirement",
+                "boundaryStatus": "BLM limited-scale Private or Unknown surface-management class",
+            },
+            "closures": {
+                "status": "not spatially complete",
+                "instruction": "Check current agency closure orders before every field trip",
+            },
         },
         "costModel": {
             "meaning": "Dimensionless relative traversal cost; lower is easier",
@@ -3319,6 +3671,11 @@ def build_human_food_analysis(
             "terrain": SOURCE_LINKS["terrain"],
             "hydrography": SOURCE_LINKS["hydrography"],
             "roads": SOURCE_LINKS["roads"],
+            "surfaceManagement": SOURCE_LINKS["surfaceManagement"],
+            "federalDischargeRule": SOURCE_LINKS["federalDischargeRule"],
+            "coloradoWildlifeStatutes": SOURCE_LINKS["coloradoWildlifeStatutes"],
+            "coloradoHuntingRegulations": SOURCE_LINKS["coloradoHuntingRegulations"],
+            "currentForestAlerts": SOURCE_LINKS["currentForestAlerts"],
         },
         "warnings": list(dict.fromkeys(warnings)),
     }
@@ -3336,14 +3693,17 @@ def build_human_food_analysis(
         source_features,
         source_member_features,
         source_buffer_features,
+        legal_exclusion_features,
         security_features,
-        corridor_features,
+        default_corridor_features,
+        default_corridor_inner_features,
     )
     log(
         f"Wrote {len(source_features)} human-food source clusters, "
         f"{len(source_member_features)} contributing records, "
         f"{len(security_features)} security options, and "
-        f"{len(corridor_features)} routes"
+        f"{len(corridor_features)} outer route variants and "
+        f"{len(corridor_inner_features)} analysis-only inner variants"
     )
 
 

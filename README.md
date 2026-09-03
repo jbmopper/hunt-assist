@@ -101,9 +101,12 @@ nearest contributing record.
 Those pieces are unioned as a multipart attraction hypothesis. The builder does
 not draw a convex hull, so an undeveloped gap between two facilities is not
 converted into source habitat. The map shows the contributing records, the
-resulting patches, and a caution boundary measured 0.5 miles outward from the
-entire footprint. These dimensions represent source-location uncertainty and
-nearby development—not a claim that food exists throughout the polygon.
+resulting patches, a mapped 150-yard rule-based screen, and optional 0.25- or
+0.5-mile caution boundaries measured outward from the entire footprint. The
+rule screen uses a modeled footprint because the source inventories contain
+points rather than surveyed facility/building boundaries. These dimensions
+represent source-location uncertainty and nearby development—not a claim that
+food exists throughout the polygon or that a displayed line is legally exact.
 
 ### Movement cost and corridor uncertainty
 
@@ -129,11 +132,35 @@ For each security option, the builder solves the night and dawn paths plus
 deterministically perturbed near-optimal paths. Each solution can terminate at
 the least-cost reachable cell on any attraction patch; it is not forced toward
 the primary record or a cluster centroid. The map displays the buffered union as
-a corridor band, one representative centerline for GPX export, and the modeled
-arrival portal where that line meets the footprint-based caution edge. A wide
-band, multiple portal groups, or low night/dawn agreement means the inputs do
-not identify one stable route. The 0.5-mile caution edge is an analysis
-guardrail, not a legal setback.
+a corridor band, one representative centerline, and the modeled arrival portal
+where that line meets the user-selected rule/0.25-mile/0.5-mile screen. The
+remaining centerline to the source footprint is preserved as a coral dashed
+"analysis only" segment, including in the GPX export. A wide band, multiple
+portal groups, or low night/dawn agreement means the inputs do not identify one
+stable route. The 0.25- and 0.5-mile edges are analysis guardrails, not legal
+setbacks.
+
+### Regulation and access screening
+
+The map treats three categories as stop-and-verify warnings:
+
+- A red 150-yard facility/occupied-area screen based on 36 CFR 261.10(d) where
+  applicable and used conservatively elsewhere, buffered from the modeled source
+  footprint rather than a surveyed boundary. Non-federal property/local rules can
+  differ.
+- Red road ribbons based on Census centerlines and Colorado's roadside/discharge
+  restrictions. Their width is approximate on the 30 m route grid.
+- Purple BLM limited-scale `Private or Unknown` surface-management polygons,
+  treated as closed for planning until current ownership and permission are
+  confirmed.
+
+The file does not contain a spatially complete feed of temporary closures or
+property-specific orders. Before field use, verify the [federal discharge
+rule](https://www.ecfr.gov/current/title-36/chapter-II/part-261/subpart-A/section-261.10),
+the [2026 Colorado regulations](https://cpw.state.co.us/sites/default/files/dam/nucdborcsb/ch-w0-as-approved-march-2026.pdf),
+current ownership, and [White River National Forest
+alerts](https://www.fs.usda.gov/r02/whiteriver/alerts). The closest displayed
+option is not automatically a lawful setup or shot.
 
 The cost coefficients are transparent, literature-informed hypotheses—not a
 resource- or step-selection model fitted to local bear telemetry. Colorado GPS
@@ -150,8 +177,9 @@ costs; they do not validate any individual line on this map.
 - [Costello et al. 2013: response to a recreation/road corridor](https://www.bearbiology.org/download/response-of-american-black-bears-to-the-non-motorized-expansion-of-a-road-corridor-in-grand-teton-national-park/)
 
 The model does not include live bear locations, fresh sign, food availability,
-traffic volume, temporary closures, fences, culverts, wildfire blowdown, or a
-verified legal shooting position. Routes can cross private land. Treat each
+traffic volume, every temporary closure, fences, culverts, wildfire blowdown,
+surveyed facility boundaries, or a verified legal shooting position. Routes
+can cross private land even when the access warning is displayed. Treat each
 band as a shortlist for aerial review and field verification, not a predicted
 animal trail.
 

@@ -1,5 +1,18 @@
 import type { Feature, FeatureCollection, Geometry, Point } from 'geojson';
 
+export type BearCautionMode =
+  | 'rule-screen'
+  | 'quarter-mile'
+  | 'half-mile';
+
+export type BearApproachProfile = {
+  label: string;
+  boundaryMiles: number;
+  outerRouteMiles: number;
+  innerRouteMiles: number;
+  portalCount: number;
+};
+
 export type BearTargetProperties = {
   kind: 'target';
   model: 'human-food';
@@ -58,8 +71,11 @@ export type BearSecurityProperties = {
   publicPercent: number;
   distanceMiles: number;
   routeMiles: number;
+  fullRouteMiles: number;
+  innerRouteMiles: number;
   approachDistanceMiles: number;
   sourceBufferMiles: number;
+  approachProfiles: Record<BearCautionMode, BearApproachProfile>;
   routeAgreement: number;
   ensembleRoutes: number;
   resolutionM: number;
@@ -74,10 +90,14 @@ export type BearSecurityProperties = {
 
 export type BearAnalysisProperties = Record<string, unknown> & {
   kind:
+    | 'access-exclusion'
     | 'corridor'
     | 'corridor-band'
+    | 'corridor-inner'
     | 'human-conflict'
     | 'hunt-boundary'
+    | 'legal-exclusion'
+    | 'road-exclusion'
     | 'security'
     | 'security-area'
     | 'source-area'
@@ -109,12 +129,25 @@ export type BearTargetCollection = FeatureCollection<
     sourceCount: number;
     sourceMemberCount: number;
     sourceAreaCount: number;
+    sourceBufferCount: number;
+    legalExclusionCount: number;
+    roadExclusionCount: number;
+    accessExclusionCount: number;
     sourcePortalCount: number;
     securityOptionCount: number;
     corridorBandCount: number;
+    corridorInnerCount: number;
     screeningResolutionM: number;
     refinementResolutionM: number;
     sourceCautionRadiusMiles: number;
+    defaultCautionMode: BearCautionMode;
+    cautionProfiles: Array<{
+      id: BearCautionMode;
+      label: string;
+      radiusMiles: number;
+      ruleBased: boolean;
+      statutoryBoundary: boolean;
+    }>;
     corridorEnsembleMembers: number;
     corridorScenarios: string[];
     sourceFootprintModel: {
@@ -123,6 +156,28 @@ export type BearTargetCollection = FeatureCollection<
       developedPatchLinkRadiusM: number;
       developedPatchMaximumReachM: number;
       routeDestination: string;
+    };
+    legalScreenModel: {
+      meaning: string;
+      facilityScreen: {
+        distanceYards: number;
+        basis: string;
+        applicability: string;
+        boundaryStatus: string;
+      };
+      roadScreen: {
+        distanceFeetEachSide: number;
+        basis: string;
+        boundaryStatus: string;
+      };
+      ownershipScreen: {
+        basis: string;
+        boundaryStatus: string;
+      };
+      closures: {
+        status: string;
+        instruction: string;
+      };
     };
     costModel: {
       meaning: string;

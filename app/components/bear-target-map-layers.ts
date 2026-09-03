@@ -1,10 +1,19 @@
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
-import type { BearTargetCollection } from '@/lib/bear-targets';
+import type {
+  BearCautionMode,
+  BearTargetCollection,
+} from '@/lib/bear-targets';
 
 export const BEAR_TARGET_LAYER_IDS = [
   'bear-hunt-area-fill',
   'bear-analysis-conflict-fill',
   'bear-analysis-conflict-outline',
+  'bear-access-exclusion-fill',
+  'bear-access-exclusion-outline',
+  'bear-road-exclusion-fill',
+  'bear-road-exclusion-outline',
+  'bear-legal-exclusion-fill',
+  'bear-legal-exclusion-outline',
   'bear-source-buffer-fill',
   'bear-source-buffer-outline',
   'bear-source-area-fill',
@@ -14,6 +23,7 @@ export const BEAR_TARGET_LAYER_IDS = [
   'bear-security-areas',
   'bear-security-area-outlines',
   'bear-corridors',
+  'bear-corridor-inner',
   'bear-hunt-area-outline',
   'bear-source-portals',
   'bear-source-members',
@@ -28,11 +38,24 @@ export const BEAR_TARGET_INTERACTIVE_LAYERS = [
   'bear-source-points',
   'bear-source-members',
   'bear-source-area-fill',
+  'bear-legal-exclusion-fill',
+  'bear-road-exclusion-fill',
+  'bear-access-exclusion-fill',
   'bear-source-portals',
   'bear-security-points',
   'bear-security-areas',
   'bear-corridor-bands',
 ] as const;
+
+const DEFAULT_CAUTION_MODE: BearCautionMode = 'half-mile';
+
+function cautionFilter(kind: string, mode: BearCautionMode) {
+  return [
+    'all',
+    ['==', ['get', 'kind'], kind],
+    ['==', ['get', 'cautionMode'], mode],
+  ];
+}
 
 export function addOrUpdateBearTargetLayers(
   map: MapLibreMap,
@@ -86,10 +109,79 @@ export function addOrUpdateBearTargetLayers(
     },
   });
   map.addLayer({
+    id: 'bear-access-exclusion-fill',
+    type: 'fill',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'access-exclusion'],
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-color': '#6f2940',
+      'fill-opacity': 0.07,
+    },
+  });
+  map.addLayer({
+    id: 'bear-access-exclusion-outline',
+    type: 'line',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'access-exclusion'],
+    layout: { visibility: 'none' },
+    paint: {
+      'line-color': '#a94d68',
+      'line-opacity': 0.25,
+      'line-width': 1,
+    },
+  });
+  map.addLayer({
+    id: 'bear-road-exclusion-fill',
+    type: 'fill',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'road-exclusion'],
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-color': '#a92f28',
+      'fill-opacity': 0.12,
+    },
+  });
+  map.addLayer({
+    id: 'bear-road-exclusion-outline',
+    type: 'line',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'road-exclusion'],
+    layout: { visibility: 'none' },
+    paint: {
+      'line-color': '#df6354',
+      'line-opacity': 0.42,
+      'line-width': 1,
+    },
+  });
+  map.addLayer({
+    id: 'bear-legal-exclusion-fill',
+    type: 'fill',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'legal-exclusion'],
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-color': '#d43e2f',
+      'fill-opacity': 0.13,
+    },
+  });
+  map.addLayer({
+    id: 'bear-legal-exclusion-outline',
+    type: 'line',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'legal-exclusion'],
+    layout: { visibility: 'none' },
+    paint: {
+      'line-color': '#ff7a67',
+      'line-opacity': 0.88,
+      'line-width': 1.8,
+    },
+  });
+  map.addLayer({
     id: 'bear-source-buffer-fill',
     type: 'fill',
     source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'source-buffer'],
+    filter: cautionFilter('source-buffer', DEFAULT_CAUTION_MODE),
     layout: { visibility: 'none' },
     paint: {
       'fill-color': '#d76542',
@@ -100,7 +192,7 @@ export function addOrUpdateBearTargetLayers(
     id: 'bear-source-buffer-outline',
     type: 'line',
     source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'source-buffer'],
+    filter: cautionFilter('source-buffer', DEFAULT_CAUTION_MODE),
     layout: { visibility: 'none' },
     paint: {
       'line-color': '#f1a36e',
@@ -136,7 +228,7 @@ export function addOrUpdateBearTargetLayers(
     id: 'bear-corridor-bands',
     type: 'fill',
     source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'corridor-band'],
+    filter: cautionFilter('corridor-band', DEFAULT_CAUTION_MODE),
     layout: { visibility: 'none' },
     paint: {
       'fill-color': '#4fd0aa',
@@ -147,7 +239,7 @@ export function addOrUpdateBearTargetLayers(
     id: 'bear-corridor-band-outlines',
     type: 'line',
     source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'corridor-band'],
+    filter: cautionFilter('corridor-band', DEFAULT_CAUTION_MODE),
     layout: { visibility: 'none' },
     paint: {
       'line-color': '#87efd0',
@@ -182,7 +274,7 @@ export function addOrUpdateBearTargetLayers(
     id: 'bear-corridors',
     type: 'line',
     source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'corridor'],
+    filter: cautionFilter('corridor', DEFAULT_CAUTION_MODE),
     layout: {
       visibility: 'none',
       'line-cap': 'round',
@@ -204,6 +296,31 @@ export function addOrUpdateBearTargetLayers(
     },
   });
   map.addLayer({
+    id: 'bear-corridor-inner',
+    type: 'line',
+    source: 'bear-target-analysis',
+    filter: cautionFilter('corridor-inner', DEFAULT_CAUTION_MODE),
+    layout: {
+      visibility: 'none',
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': '#ff907b',
+      'line-dasharray': [0.7, 1.4],
+      'line-opacity': 0.68,
+      'line-width': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        7,
+        1.1,
+        13,
+        2.2,
+      ],
+    },
+  });
+  map.addLayer({
     id: 'bear-hunt-area-outline',
     type: 'line',
     source: 'bear-target-analysis',
@@ -219,7 +336,7 @@ export function addOrUpdateBearTargetLayers(
     id: 'bear-source-portals',
     type: 'circle',
     source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'source-portal'],
+    filter: cautionFilter('source-portal', DEFAULT_CAUTION_MODE),
     layout: { visibility: 'none' },
     paint: {
       'circle-color': '#fff5dd',
@@ -359,6 +476,12 @@ export function setBearTargetSelection(
     1,
     0.14,
   ]);
+  map.setPaintProperty('bear-corridor-inner', 'line-opacity', [
+    'case',
+    selected,
+    0.88,
+    0.08,
+  ]);
   map.setPaintProperty('bear-corridor-bands', 'fill-opacity', [
     'case',
     selected,
@@ -407,4 +530,60 @@ export function setBearTargetSelection(
     1,
     0.12,
   ]);
+  map.setPaintProperty('bear-legal-exclusion-fill', 'fill-opacity', [
+    'case',
+    selected,
+    0.2,
+    0.025,
+  ]);
+  map.setPaintProperty('bear-legal-exclusion-outline', 'line-opacity', [
+    'case',
+    selected,
+    1,
+    0.12,
+  ]);
+  map.setPaintProperty('bear-road-exclusion-fill', 'fill-opacity', [
+    'case',
+    selected,
+    0.2,
+    0.025,
+  ]);
+  map.setPaintProperty('bear-road-exclusion-outline', 'line-opacity', [
+    'case',
+    selected,
+    0.8,
+    0.08,
+  ]);
+  map.setPaintProperty('bear-access-exclusion-fill', 'fill-opacity', [
+    'case',
+    selected,
+    0.16,
+    0.02,
+  ]);
+  map.setPaintProperty('bear-access-exclusion-outline', 'line-opacity', [
+    'case',
+    selected,
+    0.65,
+    0.07,
+  ]);
+}
+
+export function setBearCautionMode(
+  map: MapLibreMap,
+  mode: BearCautionMode,
+) {
+  const layers = [
+    ['bear-source-buffer-fill', 'source-buffer'],
+    ['bear-source-buffer-outline', 'source-buffer'],
+    ['bear-corridor-bands', 'corridor-band'],
+    ['bear-corridor-band-outlines', 'corridor-band'],
+    ['bear-corridors', 'corridor'],
+    ['bear-corridor-inner', 'corridor-inner'],
+    ['bear-source-portals', 'source-portal'],
+  ] as const;
+  for (const [layerId, kind] of layers) {
+    if (map.getLayer(layerId)) {
+      map.setFilter(layerId, cautionFilter(kind, mode));
+    }
+  }
 }

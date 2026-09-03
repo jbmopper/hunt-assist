@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import type {
+  BearCautionMode,
   BearSecurityFeature,
   BearTargetFeature,
 } from '@/lib/bear-targets';
 
 type BearTargetPanelProps = {
+  cautionMode: BearCautionMode;
   error: string | null;
+  onChangeCautionMode: (mode: BearCautionMode) => void;
   onSelectTarget: (targetId: string) => void;
   securityOptions: BearSecurityFeature[];
   selectedTargetId: string | null;
@@ -16,7 +19,9 @@ type BearTargetPanelProps = {
 };
 
 export default function BearTargetPanel({
+  cautionMode,
   error,
+  onChangeCautionMode,
   onSelectTarget,
   securityOptions,
   selectedTargetId,
@@ -69,7 +74,33 @@ export default function BearTargetPanel({
         </a>
         <p>
           Every cluster keeps its contributing records and mapped attraction
-          patches. Corridors stop half a mile from the nearest patch edge.
+          patches. Choose where the outer corridor stops; the remaining modeled
+          approach stays visible as a coral, analysis-only line.
+        </p>
+        <fieldset className="caution-selector">
+          <legend>Approach boundary</legend>
+          {([
+            ['rule-screen', 'Rule screen', '≈150 yd'],
+            ['quarter-mile', '0.25 mi', 'caution'],
+            ['half-mile', '0.5 mi', 'caution'],
+          ] as const).map(([mode, label, detail]) => (
+            <label key={mode}>
+              <input
+                checked={cautionMode === mode}
+                name="bear-caution-mode"
+                onChange={() => onChangeCautionMode(mode)}
+                type="radio"
+              />
+              <span>
+                <strong>{label}</strong>
+                <small>{detail}</small>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <p className="caution-selector-note">
+          The red rule screen is a conservative map constraint, not proof of the
+          true facility boundary or every applicable order.
         </p>
       </section>
 
@@ -150,19 +181,30 @@ export default function BearTargetPanel({
                     </div>
                     {options.map((option) => {
                       const detail = option.properties;
+                      const activeApproach = detail.approachProfiles?.[cautionMode] ?? {
+                        label: cautionMode === 'rule-screen'
+                          ? 'Mapped rule screen'
+                          : cautionMode === 'quarter-mile'
+                            ? '0.25 mi caution'
+                            : '0.5 mi caution',
+                        boundaryMiles: detail.approachDistanceMiles,
+                        outerRouteMiles: detail.routeMiles,
+                        innerRouteMiles: detail.innerRouteMiles ?? 0,
+                        portalCount: detail.portalCount,
+                      };
                       return (
                         <article className="security-option" key={detail.securityId}>
                           <span className="security-option-label">{detail.optionLabel}</span>
                           <div className="security-option-copy">
                             <strong>{detail.name.replace(/^H\d{2}[A-E] · /, '')}</strong>
                             <small>
-                              {detail.distanceMiles.toFixed(1)} mi to source footprint · {detail.routeMiles.toFixed(1)} mi to {detail.sourceBufferMiles.toFixed(1)} mi edge · GMU {detail.gmu}
+                              {detail.distanceMiles.toFixed(1)} mi to source footprint · {activeApproach.outerRouteMiles.toFixed(1)} mi outer + {activeApproach.innerRouteMiles.toFixed(1)} mi inner · GMU {detail.gmu}
                             </small>
                             <span>
                               Security {detail.securityScore} · cover {detail.routeCover} · drainage {detail.routeDrainage} · road exposure {detail.roadExposure}
                             </span>
                             <span>
-                              Night/dawn agreement {detail.routeAgreement}% · {detail.portalCount} portal{detail.portalCount === 1 ? '' : 's'} toward {detail.arrivalSource} · {detail.publicPercent}% federal land
+                              Night/dawn agreement {detail.routeAgreement}% · {activeApproach.label} · {activeApproach.portalCount} portal{activeApproach.portalCount === 1 ? '' : 's'} toward {detail.arrivalSource} · {detail.publicPercent}% federal land
                             </span>
                           </div>
                           <button
@@ -180,8 +222,8 @@ export default function BearTargetPanel({
                   <p className="target-caveat">
                     Context only: {properties.caveat1}. {properties.caveat2}.
                     Attraction patches are hypotheses, and corridor bands may cross
-                    private land. The caution edge is an analysis guardrail, not a
-                    legal boundary.
+                    private land. Red facility, road, and private/unknown screens are
+                    stop-and-verify warnings, not a complete legal determination.
                   </p>
                 </div>
               )}
@@ -190,9 +232,58 @@ export default function BearTargetPanel({
         })}
         <p className="target-method-note">
           Each path can choose any reachable source patch. Bands combine night,
-          dawn, and perturbed solutions; portals mark modeled arrivals at the
-          footprint-based caution edge.
+          dawn, and perturbed solutions; portals move with the selected boundary.
+          Coral dashes show the same modeled path inside that boundary for analysis,
+          never as a setup or shot recommendation.
         </p>
+        <details className="target-method">
+          <summary>Regulation &amp; access screens</summary>
+          <div>
+            <p>
+              The red facility screen uses the federal 150-yard discharge distance
+              around the modeled attraction footprint. That federal rule applies on
+              National Forest System lands; other sites can have different property
+              or local rules. Because the inventories provide points rather than
+              surveyed boundaries, treat it as conservative screening—not a measured
+              legal line.
+            </p>
+            <p>
+              Red road ribbons approximate Colorado&apos;s 50-foot roadside restriction
+              on the 30 m grid. Purple areas are the BLM&apos;s limited-scale
+              <em> Private or Unknown</em> class and are treated as closed until a
+              current parcel source and permission say otherwise. Temporary orders
+              are not spatially complete in this file.
+            </p>
+            <p className="target-method-warning">
+              Verify the exact campsite/occupied-area edge, road classification,
+              ownership, property rules, fire restrictions, and current closures in
+              the field. The rule-screen option is not a legal safe harbor.
+            </p>
+            <nav aria-label="Official hunting and discharge rules">
+              <a
+                href="https://www.ecfr.gov/current/title-36/chapter-II/part-261/subpart-A/section-261.10"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Federal discharge rule ↗
+              </a>
+              <a
+                href="https://cpw.state.co.us/sites/default/files/dam/nucdborcsb/ch-w0-as-approved-march-2026.pdf"
+                target="_blank"
+                rel="noreferrer"
+              >
+                2026 Colorado rules ↗
+              </a>
+              <a
+                href="https://www.fs.usda.gov/r02/whiteriver/alerts"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Current forest alerts ↗
+              </a>
+            </nav>
+          </div>
+        </details>
         <details className="target-method">
           <summary>Model assumptions &amp; cost function</summary>
           <div>
