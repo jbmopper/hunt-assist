@@ -1630,6 +1630,48 @@ a {
   line-height: 1.35;
 }
 
+.source-records {
+  overflow: hidden;
+  border: 1px solid #ead7c7;
+  border-radius: 8px;
+  background: #fffaf4;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.source-records summary {
+  padding: 8px 10px;
+  color: #6c4936;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.source-records[open] summary {
+  border-bottom: 1px solid #eadfd4;
+}
+
+.source-records ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 9px 10px 10px;
+  list-style: none;
+}
+
+.source-records li {
+  display: grid;
+  gap: 1px;
+}
+
+.source-records li strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.source-records li span {
+  line-height: 1.35;
+}
+
 .target-vegetation,
 .target-caveat,
 .target-method-note {
@@ -1865,6 +1907,20 @@ a {
   border: 1.5px dashed #e58b53;
   border-radius: 50%;
   background: rgb(215 101 66 / 10%);
+}
+
+.legend-source-area {
+  border: 1px solid #ffb07c;
+  background: rgb(198 79 52 / 34%);
+}
+
+.legend-source-portal {
+  width: 9px !important;
+  height: 9px !important;
+  margin: 0 4px;
+  border: 1.5px solid #d76542;
+  border-radius: 50%;
+  background: #fff5dd;
 }
 
 .map-legend .legend-security {

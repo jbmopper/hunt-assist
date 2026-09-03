@@ -12,6 +12,15 @@ export type BearTargetProperties = {
   sourceManager: string;
   sourceInventory: string;
   sourceCount: number;
+  sourceMembers: Array<{
+    name: string;
+    category: string;
+    manager: string;
+    inventory: string;
+  }>;
+  sourceFootprintAcres: number;
+  sourceFootprintParts: number;
+  sourceExtentMiles: number;
   huntCode: 'BE012O1R';
   gmu: number;
   relativeScore: number;
@@ -37,6 +46,8 @@ export type BearSecurityProperties = {
   optionLabel: string;
   name: string;
   sourceName: string;
+  arrivalSource: string;
+  portalCount: number;
   gmu: number;
   securityScore: number;
   cover: number;
@@ -69,7 +80,10 @@ export type BearAnalysisProperties = Record<string, unknown> & {
     | 'hunt-boundary'
     | 'security'
     | 'security-area'
+    | 'source-area'
     | 'source-buffer'
+    | 'source-member'
+    | 'source-portal'
     | 'target';
   targetId?: string;
 };
@@ -93,6 +107,9 @@ export type BearTargetCollection = FeatureCollection<
     methodVersion: string;
     scoreMeaning: string;
     sourceCount: number;
+    sourceMemberCount: number;
+    sourceAreaCount: number;
+    sourcePortalCount: number;
     securityOptionCount: number;
     corridorBandCount: number;
     screeningResolutionM: number;
@@ -100,6 +117,13 @@ export type BearTargetCollection = FeatureCollection<
     sourceCautionRadiusMiles: number;
     corridorEnsembleMembers: number;
     corridorScenarios: string[];
+    sourceFootprintModel: {
+      meaning: string;
+      anchorRadiiM: Record<string, number>;
+      developedPatchLinkRadiusM: number;
+      developedPatchMaximumReachM: number;
+      routeDestination: string;
+    };
     costModel: {
       meaning: string;
       commonWeights: Record<string, number>;

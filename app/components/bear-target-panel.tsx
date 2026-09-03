@@ -61,15 +61,15 @@ export default function BearTargetPanel({
       <section className="target-summary">
         <div>
           <span className="target-code">BE012O1R · 30 m human-food model</span>
-          <strong>{targets.length} conflict-linked sources</strong>
+          <strong>{targets.length} conflict-linked source clusters</strong>
           <small>{securityOptions.length} behavior-informed corridor options</small>
         </div>
         <a className="gpx-button" href="/data/be012o1r-targets.gpx" download>
           GPX ↓
         </a>
         <p>
-          Compare two to five security areas and their night/dawn route ensembles.
-          Each corridor stops at the half-mile source caution ring.
+          Every cluster keeps its contributing records and mapped attraction
+          patches. Corridors stop half a mile from the nearest patch edge.
         </p>
       </section>
 
@@ -111,8 +111,28 @@ export default function BearTargetPanel({
                 <div className="target-card-detail">
                   <div className="target-terrain-line">
                     <span>{conflictLabel}</span>
-                    <span>{properties.sourceCount} source record{properties.sourceCount === 1 ? '' : 's'}</span>
+                    <span>
+                      {properties.sourceFootprintAcres} acres · {properties.sourceFootprintParts}{' '}
+                      {properties.sourceFootprintParts === 1 ? 'patch' : 'patches'}
+                    </span>
                   </div>
+
+                  <details className="source-records">
+                    <summary>
+                      {properties.sourceCount} contributing source record{properties.sourceCount === 1 ? '' : 's'}
+                      {properties.sourceExtentMiles > 0
+                        ? ` across ${properties.sourceExtentMiles.toFixed(1)} mi`
+                        : ''}
+                    </summary>
+                    <ul>
+                      {properties.sourceMembers.map((member, index) => (
+                        <li key={`${member.name}-${member.inventory}-${index}`}>
+                          <strong>{member.name}</strong>
+                          <span>{member.category} · {member.manager} · {member.inventory}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
 
                   <div className="target-reasons">
                     <strong>Why this source surfaced</strong>
@@ -136,13 +156,13 @@ export default function BearTargetPanel({
                           <div className="security-option-copy">
                             <strong>{detail.name.replace(/^H\d{2}[A-E] · /, '')}</strong>
                             <small>
-                              {detail.distanceMiles.toFixed(1)} mi to source · {detail.routeMiles.toFixed(1)} mi to {detail.sourceBufferMiles.toFixed(1)} mi ring · GMU {detail.gmu}
+                              {detail.distanceMiles.toFixed(1)} mi to source footprint · {detail.routeMiles.toFixed(1)} mi to {detail.sourceBufferMiles.toFixed(1)} mi edge · GMU {detail.gmu}
                             </small>
                             <span>
                               Security {detail.securityScore} · cover {detail.routeCover} · drainage {detail.routeDrainage} · road exposure {detail.roadExposure}
                             </span>
                             <span>
-                              Night/dawn agreement {detail.routeAgreement}% · {detail.ensembleRoutes} paths · {detail.publicPercent}% federal land along representative line
+                              Night/dawn agreement {detail.routeAgreement}% · {detail.portalCount} portal{detail.portalCount === 1 ? '' : 's'} toward {detail.arrivalSource} · {detail.publicPercent}% federal land
                             </span>
                           </div>
                           <button
@@ -159,8 +179,9 @@ export default function BearTargetPanel({
 
                   <p className="target-caveat">
                     Context only: {properties.caveat1}. {properties.caveat2}.
-                    Corridor bands may cross private land. The caution ring is an
-                    analysis guardrail, not a legal boundary.
+                    Attraction patches are hypotheses, and corridor bands may cross
+                    private land. The caution edge is an analysis guardrail, not a
+                    legal boundary.
                   </p>
                 </div>
               )}
@@ -168,8 +189,9 @@ export default function BearTargetPanel({
           );
         })}
         <p className="target-method-note">
-          Bands combine night approach, dawn return, and perturbed near-optimal paths
-          on a 30 m grid. They express uncertainty—not observed bear trails.
+          Each path can choose any reachable source patch. Bands combine night,
+          dawn, and perturbed solutions; portals mark modeled arrivals at the
+          footprint-based caution edge.
         </p>
         <details className="target-method">
           <summary>Model assumptions &amp; cost function</summary>
@@ -183,9 +205,10 @@ export default function BearTargetPanel({
             </p>
             <p>
               Night applies lighter disturbance costs. Dawn increases the penalties
-              for canopy gaps, trails, roads, and development. Water and 50° slopes
-              are strong barriers. All terms are relative 0–1 surfaces, so the
-              coefficients are comparisons—not probabilities.
+              for canopy gaps, trails, roads, and development. The destination is
+              whichever attraction patch produces the lowest cumulative cost. Water
+              and 50° slopes are strong barriers. All terms are relative 0–1
+              surfaces, so the coefficients are comparisons—not probabilities.
             </p>
             <p className="target-method-warning">
               These are transparent, literature-informed weights, not coefficients

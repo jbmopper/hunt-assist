@@ -16,13 +16,19 @@ const securityOptions = getBearSecurityOptions(collection);
 test('ships a human-food BE012O1R target package', () => {
   assert.equal(collection.metadata.huntCode, 'BE012O1R');
   assert.equal(collection.metadata.mode, 'human-food');
-  assert.equal(collection.metadata.methodVersion, '0.3-behavior-corridors');
+  assert.equal(collection.metadata.methodVersion, '0.4-source-footprints');
   assert.equal(collection.metadata.refinementResolutionM, 30);
   assert.equal(collection.metadata.sourceCautionRadiusMiles, 0.5);
   assert.deepEqual(collection.metadata.units, [12, 13, 23, 24, 25, 26, 33, 131, 231]);
   assert.ok(targets.length >= 4 && targets.length <= 8);
   assert.equal(collection.metadata.sourceCount, targets.length);
+  assert.equal(collection.metadata.sourceAreaCount, targets.length);
+  assert.equal(
+    collection.metadata.sourceMemberCount,
+    targets.reduce((sum, target) => sum + target.properties.sourceCount, 0),
+  );
   assert.equal(collection.metadata.securityOptionCount, securityOptions.length);
+  assert.equal(collection.metadata.sourcePortalCount, securityOptions.length);
   assert.equal(collection.metadata.corridorBandCount, securityOptions.length);
   assert.ok(collection.metadata.sources.hydrography);
   assert.ok(collection.metadata.sources.roads);
@@ -52,6 +58,10 @@ test('prioritizes conflict-linked human-food sources', () => {
     assert.ok(properties.conflictScore > 10);
     assert.ok(properties.conflictDistanceMiles <= 1.5);
     assert.ok(properties.securityOptions >= 2 && properties.securityOptions <= 5);
+    assert.equal(properties.sourceMembers.length, properties.sourceCount);
+    assert.ok(properties.sourceFootprintAcres > 0);
+    assert.ok(properties.sourceFootprintParts >= 1);
+    assert.ok(properties.sourceExtentMiles >= 0);
     assert.match(properties.caveat1, /historical conflict/i);
     assert.match(properties.caveat2, /do not hunt/i);
   }
@@ -79,6 +89,8 @@ test('pairs every source with two to five security areas and routes', () => {
       assert.equal(properties.sourceBufferMiles, 0.5);
       assert.equal(properties.resolutionM, 30);
       assert.ok(properties.ensembleRoutes >= 2 && properties.ensembleRoutes <= 10);
+      assert.ok(properties.portalCount >= 1 && properties.portalCount <= 10);
+      assert.ok(properties.arrivalSource.length > 0);
       assert.ok(properties.routeAgreement >= 0 && properties.routeAgreement <= 100);
       assert.ok(properties.routeDrainage >= 0 && properties.routeDrainage <= 100);
       assert.ok(properties.roadExposure >= 0 && properties.roadExposure <= 100);
@@ -88,6 +100,13 @@ test('pairs every source with two to five security areas and routes', () => {
         collection.features.some(
           (feature) =>
             feature.properties.kind === 'security-area' &&
+            feature.properties.securityId === properties.securityId,
+        ),
+      );
+      assert.ok(
+        collection.features.some(
+          (feature) =>
+            feature.properties.kind === 'source-portal' &&
             feature.properties.securityId === properties.securityId,
         ),
       );
@@ -113,6 +132,13 @@ test('pairs every source with two to five security areas and routes', () => {
           feature.properties.targetId === targetId,
       ),
     );
+    assert.ok(
+      collection.features.some(
+        (feature) =>
+          feature.properties.kind === 'source-area' &&
+          feature.properties.targetId === targetId,
+      ),
+    );
   }
 });
 
@@ -120,9 +146,13 @@ test('exports context, security waypoints, and every route to GPX', () => {
   const gpx = readFileSync('public/data/be012o1r-targets.gpx', 'utf8');
   assert.equal(
     (gpx.match(/<wpt /g) ?? []).length,
-    targets.length + securityOptions.length,
+    targets.length + collection.metadata.sourceMemberCount + securityOptions.length,
   );
-  assert.equal((gpx.match(/<trk>/g) ?? []).length, securityOptions.length);
+  assert.ok(
+    (gpx.match(/<trk>/g) ?? []).length >= securityOptions.length + targets.length,
+  );
   assert.match(gpx, /Human-food context — not a setup location/);
+  assert.match(gpx, /Contributing human-food source record/);
+  assert.match(gpx, /Analysis caution boundary — not statutory/);
   assert.match(gpx, /Modeled security option — verify access and sign/);
 });

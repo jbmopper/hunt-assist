@@ -55,7 +55,7 @@ from shapely.geometry import LineString, Point, box, mapping, shape
 from shapely.ops import transform as transform_geometry
 from shapely.ops import unary_union
 from skimage.draw import line as raster_line
-from skimage.graph import route_through_array
+from skimage.graph import MCP_Geometric, route_through_array
 
 
 HUNT_CODE = "BE012O1R"
@@ -119,6 +119,8 @@ FINE_GROUND_RESOLUTION_M = 30.0
 FINE_TILE_RADIUS_M = 7_200.0
 SOURCE_CAUTION_RADIUS_M = 805.0
 CORRIDOR_ENSEMBLE_MEMBERS = 10
+SOURCE_DEVELOPED_LINK_RADIUS_M = 450.0
+SOURCE_DEVELOPED_MAX_REACH_M = 1_000.0
 EARTH_SEARCH = "https://earth-search.aws.element84.com/v1/search"
 GNIS_COLORADO = (
     "https://prd-tnm.s3.amazonaws.com/StagedProducts/GeographicNames/"
@@ -1276,21 +1278,69 @@ def route_cost(
     return total
 
 
-def trim_route_to_source_buffer(
+def route_to_mask(
+    start: tuple[int, int],
+    destination_mask: np.ndarray,
+    cost: np.ndarray,
+) -> list[tuple[int, int]]:
+    """Trace the cheapest path to any reachable cell in a multipart destination."""
+    destination_cells = np.argwhere(destination_mask & (cost < 100_000))
+    if not destination_cells.size:
+        raise BuildWarning("No reachable cells remain in the source footprint")
+    destinations = [tuple(map(int, cell)) for cell in destination_cells]
+    solver = MCP_Geometric(cost, fully_connected=True)
+    cumulative_costs, _ = solver.find_costs(
+        [start],
+        ends=destinations,
+        find_all_ends=False,
+        max_step_cost=100_000,
+    )
+    destination_costs = cumulative_costs[
+        destination_cells[:, 0],
+        destination_cells[:, 1],
+    ]
+    finite = np.isfinite(destination_costs)
+    if not np.any(finite):
+        raise BuildWarning("No least-cost path reached the source footprint")
+    reachable_cells = destination_cells[finite]
+    reachable_costs = destination_costs[finite]
+    selected = reachable_cells[int(np.argmin(reachable_costs))]
+    return [tuple(map(int, cell)) for cell in solver.traceback(tuple(selected))]
+
+
+def trim_route_to_caution_mask(
     route: list[tuple[int, int]],
-    source: tuple[int, int],
-    pixel_ground_m: float,
-    radius_m: float,
+    caution_mask: np.ndarray,
 ) -> list[tuple[int, int]]:
     outside: list[tuple[int, int]] = []
-    radius_cells = radius_m / pixel_ground_m
     for cell in route:
-        if math.hypot(cell[0] - source[0], cell[1] - source[1]) <= radius_cells:
+        if caution_mask[cell]:
             break
         outside.append(cell)
     if len(outside) >= 2:
         return outside
     return route[: max(2, min(len(route), 2))]
+
+
+def distinct_arrival_portals(
+    routes: list[list[tuple[int, int]]],
+    pixel_ground_m: float,
+    minimum_spacing_m: float = 120.0,
+) -> int:
+    selected: list[tuple[int, int]] = []
+    for route in routes:
+        if not route:
+            continue
+        endpoint = route[-1]
+        if any(
+            math.hypot(endpoint[0] - other[0], endpoint[1] - other[1])
+            * pixel_ground_m
+            < minimum_spacing_m
+            for other in selected
+        ):
+            continue
+        selected.append(endpoint)
+    return len(selected)
 
 
 def route_agreement_score(
@@ -1316,37 +1366,37 @@ def route_agreement_score(
 
 def corridor_route_ensemble(
     security: tuple[int, int],
-    source: tuple[int, int],
+    source_mask: np.ndarray,
+    caution_mask: np.ndarray,
     night_cost: np.ndarray,
     dawn_cost: np.ndarray,
     pixel_ground_m: float,
     *,
     seed: int,
-) -> tuple[list[tuple[int, int]], list[list[tuple[int, int]]], int]:
+) -> tuple[list[tuple[int, int]], list[list[tuple[int, int]]], int, int]:
     """Build deterministic night/dawn and perturbed near-optimal route hypotheses."""
-    rows, columns = np.ogrid[: night_cost.shape[0], : night_cost.shape[1]]
-    source_buffer = (
-        np.square(rows - source[0]) + np.square(columns - source[1])
-        <= (SOURCE_CAUTION_RADIUS_M / pixel_ground_m) ** 2
-    )
     night_routing = night_cost.copy()
     dawn_routing = dawn_cost.copy()
-    night_routing[source_buffer] = np.minimum(night_routing[source_buffer], 0.12)
-    dawn_routing[source_buffer] = np.minimum(dawn_routing[source_buffer], 0.12)
-
-    night_full = route_between(security, source, night_routing, pixel_ground_m)
-    dawn_full = route_between(security, source, dawn_routing, pixel_ground_m)
-    night = trim_route_to_source_buffer(
-        night_full,
-        source,
-        pixel_ground_m,
-        SOURCE_CAUTION_RADIUS_M,
+    night_destination = source_mask & (night_routing < 100_000)
+    dawn_destination = source_mask & (dawn_routing < 100_000)
+    night_routing[night_destination] = np.minimum(
+        night_routing[night_destination],
+        0.12,
     )
-    dawn = trim_route_to_source_buffer(
+    dawn_routing[dawn_destination] = np.minimum(
+        dawn_routing[dawn_destination],
+        0.12,
+    )
+
+    night_full = route_to_mask(security, night_destination, night_routing)
+    dawn_full = route_to_mask(security, dawn_destination, dawn_routing)
+    night = trim_route_to_caution_mask(
+        night_full,
+        caution_mask,
+    )
+    dawn = trim_route_to_caution_mask(
         dawn_full,
-        source,
-        pixel_ground_m,
-        SOURCE_CAUTION_RADIUS_M,
+        caution_mask,
     )
     agreement = route_agreement_score(night, dawn, night_cost.shape, pixel_ground_m)
 
@@ -1368,18 +1418,21 @@ def corridor_route_ensemble(
         if standard_deviation > 0:
             noise /= standard_deviation
         perturbed = np.clip(base * np.exp(0.09 * noise), 0.05, 1_000_000)
-        full_route = route_between(security, source, perturbed, pixel_ground_m)
-        route = trim_route_to_source_buffer(
+        full_route = route_to_mask(security, source_mask, perturbed)
+        route = trim_route_to_caution_mask(
             full_route,
-            source,
-            pixel_ground_m,
-            SOURCE_CAUTION_RADIUS_M,
+            caution_mask,
         )
         if len(route) < 2:
             continue
         if tuple(route) not in {tuple(existing) for existing in routes}:
             routes.append(route)
-    return representative, routes, agreement
+    return (
+        representative,
+        routes,
+        agreement,
+        distinct_arrival_portals(routes, pixel_ground_m),
+    )
 
 
 def load_human_food_sources(
@@ -1596,6 +1649,95 @@ def source_strength(source: dict[str, Any]) -> float:
     return min(value, 1.0)
 
 
+def source_anchor_radius_m(source: dict[str, Any]) -> float:
+    """Return a conservative positional footprint around one source record."""
+    category = str(source.get("category", "")).lower()
+    if "populated" in category:
+        return 320.0
+    if "developed" in category:
+        return 240.0
+    if "swa" in category:
+        return 160.0
+    return 120.0
+
+
+def cluster_center_point(members: list[dict[str, Any]]) -> Point:
+    """Center a refinement tile on all records without implying a food centroid."""
+    return Point(
+        float(np.mean([member["point"].x for member in members])),
+        float(np.mean([member["point"].y for member in members])),
+    )
+
+
+def source_cluster_extent_m(members: list[dict[str, Any]]) -> float:
+    projected = [member["projected"] for member in members]
+    return max(
+        (
+            left.distance(right)
+            for index, left in enumerate(projected)
+            for right in projected[:index]
+        ),
+        default=0.0,
+    )
+
+
+def source_footprint_mask(
+    members: list[dict[str, Any]],
+    developed: np.ndarray,
+    water: np.ndarray,
+    transform: rasterio.Affine,
+    shape_: tuple[int, int],
+    forward: Transformer,
+    pixel_ground_m: float,
+) -> tuple[np.ndarray, list[tuple[dict[str, Any], tuple[int, int]]]]:
+    """Combine record uncertainty buffers with nearby dense developed patches.
+
+    The result can remain multipart. It deliberately avoids a convex hull, which
+    would turn undeveloped terrain between separate facilities into attraction
+    habitat merely because both facilities belong to the same cluster.
+    """
+    rows, columns = np.ogrid[: shape_[0], : shape_[1]]
+    anchor_mask = np.zeros(shape_, dtype=bool)
+    member_seed_mask = np.zeros(shape_, dtype=bool)
+    member_cells: list[tuple[dict[str, Any], tuple[int, int]]] = []
+    for member in members:
+        cell = point_cell(transform, member["point"], shape_, forward)
+        if cell is None:
+            continue
+        member_cells.append((member, cell))
+        member_seed_mask[cell] = True
+        radius_cells = source_anchor_radius_m(member) / pixel_ground_m
+        anchor_mask |= (
+            np.square(rows - cell[0]) + np.square(columns - cell[1])
+            <= radius_cells**2
+        )
+    if not member_cells:
+        raise BuildWarning("No source-cluster records fell inside the refinement tile")
+
+    distance_to_member_m = distance_transform_edt(~member_seed_mask) * pixel_ground_m
+    # Requiring local density suppresses isolated LANDFIRE road pixels before
+    # nearby development is connected to a source record.
+    developed_core = uniform_filter(
+        developed.astype(np.float32),
+        size=3,
+        mode="nearest",
+    ) >= 0.22
+    developed_patch = binary_dilation(developed_core, iterations=1)
+    developed_labels, _ = connected_components(developed_patch)
+    linked_ids = np.unique(
+        developed_labels[distance_to_member_m <= SOURCE_DEVELOPED_LINK_RADIUS_M]
+    )
+    linked_ids = linked_ids[linked_ids > 0]
+    linked_development = (
+        np.isin(developed_labels, linked_ids)
+        & (distance_to_member_m <= SOURCE_DEVELOPED_MAX_REACH_M)
+    )
+    footprint = (anchor_mask | linked_development) & ~water
+    if not np.any(footprint):
+        raise BuildWarning("Source-cluster footprint was empty after water masking")
+    return footprint, member_cells
+
+
 def conflict_linked_source_clusters(
     sources: list[dict[str, Any]],
     conflict_geometry: Any,
@@ -1679,6 +1821,7 @@ def conflict_linked_source_clusters(
                 **primary,
                 "members": member_sources,
                 "sourceCount": len(member_sources),
+                "sourceExtentM": source_cluster_extent_m(member_sources),
                 "conflictDistanceM": conflict_distance_m,
                 "conflictScore": conflict_score,
                 "strength": max(source["strength"] for source in member_sources),
@@ -1693,6 +1836,7 @@ def choose_security_cells(
     security_score: np.ndarray,
     pixel_ground_m: float,
     *,
+    source_mask: np.ndarray | None = None,
     maximum_options: int = 5,
     minimum_score: float = 0.43,
     minimum_distance_m: float = 1_600,
@@ -1701,8 +1845,12 @@ def choose_security_cells(
     if not candidate_cells.size:
         return []
     row, column = source_cell
-    offsets = candidate_cells - np.array((row, column))
-    distances = np.hypot(offsets[:, 0], offsets[:, 1]) * pixel_ground_m
+    if source_mask is None:
+        offsets = candidate_cells - np.array((row, column))
+        distances = np.hypot(offsets[:, 0], offsets[:, 1]) * pixel_ground_m
+    else:
+        distance_surface = distance_transform_edt(~source_mask) * pixel_ground_m
+        distances = distance_surface[candidate_cells[:, 0], candidate_cells[:, 1]]
     nearby = (distances >= minimum_distance_m) & (distances <= maximum_distance_m)
     local_cells = candidate_cells[nearby]
     local_distances = distances[nearby]
@@ -1868,11 +2016,56 @@ def route_line_projected(
     return LineString(coordinates)
 
 
+def route_geometry_outside_zone(
+    transform: rasterio.Affine,
+    inverse_transformer: Transformer,
+    route: list[tuple[int, int]],
+    excluded_projected: Any,
+) -> tuple[LineString, Point, LineString]:
+    """Clip a raster route to the exact displayed exclusion boundary.
+
+    Raster cell centers can sit just outside a caution mask while the segment
+    between them clips the smooth displayed polygon. Keeping the component that
+    contains the security start makes the map line and arrival portal agree with
+    the visible caution edge rather than differing by part of a 30 m cell.
+    """
+    projected_route = route_line_projected(transform, route)
+    outside = projected_route.difference(excluded_projected)
+
+    line_parts: list[LineString] = []
+
+    def collect_lines(geometry: Any) -> None:
+        if geometry.geom_type == "LineString" and not geometry.is_empty:
+            line_parts.append(geometry)
+            return
+        if hasattr(geometry, "geoms"):
+            for part in geometry.geoms:
+                collect_lines(part)
+
+    collect_lines(outside)
+    if not line_parts:
+        raise BuildWarning("A modeled corridor was fully inside its caution zone")
+
+    start = Point(projected_route.coords[0])
+    selected = min(line_parts, key=lambda line: line.distance(start))
+    coordinates = list(selected.coords)
+    if Point(coordinates[-1]).distance(start) < Point(coordinates[0]).distance(start):
+        coordinates.reverse()
+    selected = LineString(coordinates)
+    endpoint = Point(selected.coords[-1])
+    return (
+        transform_geometry(inverse_transformer.transform, selected),
+        endpoint,
+        selected,
+    )
+
+
 def corridor_band_geometry(
     transform: rasterio.Affine,
     inverse_transformer: Transformer,
     routes: list[list[tuple[int, int]]],
     pixel_ground_m: float,
+    excluded_projected: Any,
 ) -> Any:
     map_units_per_ground_m = abs(transform.a) / pixel_ground_m
     route_buffers = [
@@ -1886,23 +2079,52 @@ def corridor_band_geometry(
         8 * map_units_per_ground_m,
         preserve_topology=True,
     )
+    projected = projected.difference(excluded_projected).buffer(0)
     return transform_geometry(inverse_transformer.transform, projected)
 
 
-def source_caution_geometry(
-    source_point: Point,
-    forward: Transformer,
-    inverse: Transformer,
-    pixel_map_m: float,
-    pixel_ground_m: float,
+def raster_mask_projected_geometry(
+    mask: np.ndarray,
+    transform: rasterio.Affine,
 ) -> Any:
-    x_coord, y_coord = forward.transform(source_point.x, source_point.y)
-    map_units_per_ground_m = pixel_map_m / pixel_ground_m
-    projected = Point(x_coord, y_coord).buffer(
-        SOURCE_CAUTION_RADIUS_M * map_units_per_ground_m,
-        resolution=48,
+    polygons = [
+        shape(geometry)
+        for geometry, value in shapes(
+            mask.astype("uint8"),
+            mask=mask,
+            transform=transform,
+        )
+        if value == 1
+    ]
+    if not polygons:
+        raise BuildWarning("A required raster footprint did not contain any polygons")
+    return unary_union(polygons).buffer(0)
+
+
+def source_zone_geometries(
+    source_mask: np.ndarray,
+    transform: rasterio.Affine,
+    inverse: Transformer,
+    pixel_ground_m: float,
+) -> tuple[Any, Any, Any, Any]:
+    map_units_per_ground_m = abs(transform.a) / pixel_ground_m
+    projected_source = raster_mask_projected_geometry(source_mask, transform).simplify(
+        8 * map_units_per_ground_m,
+        preserve_topology=True,
     )
-    return transform_geometry(inverse.transform, projected)
+    projected_caution = projected_source.buffer(
+        SOURCE_CAUTION_RADIUS_M * map_units_per_ground_m,
+        resolution=24,
+    ).simplify(
+        10 * map_units_per_ground_m,
+        preserve_topology=True,
+    )
+    return (
+        transform_geometry(inverse.transform, projected_source),
+        transform_geometry(inverse.transform, projected_caution),
+        projected_source,
+        projected_caution,
+    )
 
 
 def component_polygon(
@@ -2024,6 +2246,8 @@ def as_feature(geometry: Any, properties: dict[str, Any]) -> dict[str, Any]:
 
 def write_human_food_gpx(
     sources: list[dict[str, Any]],
+    source_members: list[dict[str, Any]],
+    source_buffers: list[dict[str, Any]],
     security_options: list[dict[str, Any]],
     corridors: list[dict[str, Any]],
 ) -> None:
@@ -2044,6 +2268,21 @@ def write_human_food_gpx(
             f"<desc>{escape(properties['summary'])}</desc>"
             "<type>Human-food context — not a setup location</type></wpt>"
         )
+    source_labels = {
+        feature["properties"]["targetId"]: feature["properties"]["shortName"]
+        for feature in sources
+    }
+    for feature in source_members:
+        properties = feature["properties"]
+        longitude, latitude = feature["geometry"]["coordinates"]
+        source_label = source_labels.get(properties["targetId"], properties["targetId"])
+        lines.append(
+            f'  <wpt lat="{latitude:.6f}" lon="{longitude:.6f}">'
+            f"<name>{escape(source_label)} · {escape(properties['name'])}</name>"
+            f"<desc>{escape(properties['category'])}; "
+            f"{escape(properties['inventory'])}. Not confirmed food access.</desc>"
+            "<type>Contributing human-food source record</type></wpt>"
+        )
     for feature in security_options:
         properties = feature["properties"]
         longitude, latitude = feature["geometry"]["coordinates"]
@@ -2053,6 +2292,26 @@ def write_human_food_gpx(
             f"<desc>{escape(properties['summary'])}</desc>"
             "<type>Modeled security option — verify access and sign</type></wpt>"
         )
+    for feature in source_buffers:
+        properties = feature["properties"]
+        geometry = shape(feature["geometry"])
+        polygons = (
+            [geometry]
+            if geometry.geom_type == "Polygon"
+            else [part for part in geometry.geoms if part.geom_type == "Polygon"]
+        )
+        for part_index, polygon in enumerate(polygons, start=1):
+            suffix = f" · part {part_index}" if len(polygons) > 1 else ""
+            lines.append(
+                f"  <trk><name>{escape(properties['sourceName'])} "
+                f"0.5 mi caution edge{suffix}</name>"
+                "<type>Analysis caution boundary — not statutory</type><trkseg>"
+            )
+            for longitude, latitude in polygon.exterior.coords:
+                lines.append(
+                    f'    <trkpt lat="{latitude:.6f}" lon="{longitude:.6f}" />'
+                )
+            lines.append("  </trkseg></trk>")
     for feature in corridors:
         properties = feature["properties"]
         lines.append(f"  <trk><name>{escape(properties['name'])}</name><trkseg>")
@@ -2079,6 +2338,7 @@ def build_local_human_refinement(
     temporary: Path,
     tile_id: str,
     source_point: Point,
+    source_members: list[dict[str, Any]],
     units_collection: dict[str, Any],
     global_transform: rasterio.Affine,
     global_public_mask: np.ndarray,
@@ -2086,7 +2346,7 @@ def build_local_human_refinement(
     forward: Transformer,
     inverse: Transformer,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Build a 30 m movement tile around one selected human-food source."""
+    """Build a 30 m movement tile around one selected source cluster."""
     latitude_scale = max(0.55, math.cos(math.radians(source_point.y)))
     pixel_map_m = FINE_GROUND_RESOLUTION_M / latitude_scale
     radius_map_m = FINE_TILE_RADIUS_M / latitude_scale
@@ -2187,6 +2447,19 @@ def build_local_human_refinement(
         forward,
     )
     water = landfire_water | movement_masks["waterbody"]
+    source_mask, source_member_cells = source_footprint_mask(
+        source_members,
+        developed,
+        water,
+        transform,
+        shape_,
+        forward,
+        FINE_GROUND_RESOLUTION_M,
+    )
+    source_distance_m = (
+        distance_transform_edt(~source_mask) * FINE_GROUND_RESOLUTION_M
+    )
+    caution_mask = source_distance_m <= SOURCE_CAUTION_RADIUS_M
 
     drainage = np.maximum(
         0.72 * proximity_score(
@@ -2320,6 +2593,7 @@ def build_local_human_refinement(
         candidates,
         security_score,
         FINE_GROUND_RESOLUTION_M,
+        source_mask=source_mask,
         minimum_score=0.32,
     )
 
@@ -2345,6 +2619,10 @@ def build_local_human_refinement(
             "forward": forward,
             "inverse": inverse,
             "sourceCell": source_cell,
+            "sourceMask": source_mask,
+            "sourceDistanceM": source_distance_m,
+            "sourceCautionMask": caution_mask,
+            "sourceMemberCells": source_member_cells,
             "huntMask": hunt_mask,
             "gmu": gmu_raster,
             "public": public_mask,
@@ -2497,12 +2775,14 @@ def build_human_food_analysis(
     log("Refining selected sources with 30 m behavior-aware movement tiles")
     refined_sources: list[dict[str, Any]] = []
     for source_index, source in enumerate(selected_sources, start=1):
+        cluster_center = cluster_center_point(source["members"])
         try:
             refinement, refinement_warnings = build_local_human_refinement(
                 session,
                 temporary,
                 f"human-{source_index:02d}",
-                source["point"],
+                cluster_center,
+                source["members"],
                 units_collection,
                 transform,
                 public_mask,
@@ -2537,6 +2817,7 @@ def build_human_food_analysis(
         refined_sources.append(
             {
                 **source,
+                "clusterCenter": cluster_center,
                 "priority": priority,
                 "refinement": refinement,
                 "securityCells": security_cells,
@@ -2554,6 +2835,10 @@ def build_human_food_analysis(
 
     features: list[dict[str, Any]] = []
     source_features: list[dict[str, Any]] = []
+    source_member_features: list[dict[str, Any]] = []
+    source_buffer_features: list[dict[str, Any]] = []
+    source_area_features: list[dict[str, Any]] = []
+    source_portal_features: list[dict[str, Any]] = []
     security_features: list[dict[str, Any]] = []
     corridor_features: list[dict[str, Any]] = []
     for feature in units_collection.get("features", []):
@@ -2587,7 +2872,25 @@ def build_human_food_analysis(
         fine_transform = refinement["transform"]
         fine_inverse = refinement["inverse"]
         fine_pixel_ground_m = float(refinement["pixelGroundM"])
-        source_cell = refinement["sourceCell"]
+        source_mask = refinement["sourceMask"]
+        (
+            source_area_geometry,
+            caution_geometry,
+            projected_source_area,
+            projected_caution,
+        ) = source_zone_geometries(
+            source_mask,
+            fine_transform,
+            fine_inverse,
+            fine_pixel_ground_m,
+        )
+        footprint_acres = (
+            float(np.count_nonzero(source_mask))
+            * fine_pixel_ground_m**2
+            / 4_046.8564224
+        )
+        _, footprint_parts = connected_components(source_mask)
+        source_extent_miles = float(source["sourceExtentM"]) / 1_609.344
         conflict_distance_m = float(source["conflictDistanceM"])
         conflict_distance_miles = conflict_distance_m / 1_609.344
         relative_score = int(round(np.clip(55 + 44 * source["priority"], 60, 99)))
@@ -2595,15 +2898,26 @@ def build_human_food_analysis(
         categories = sorted(
             {str(member["category"]) for member in source["members"]}
         )
+        source_members = [
+            {
+                "name": str(member["name"]),
+                "category": str(member["category"]),
+                "manager": str(member["manager"]),
+                "inventory": str(member["inventory"]),
+            }
+            for member in source["members"]
+        ]
         conflict_reason = (
             "mapped source overlaps CPW historical conflict habitat"
             if conflict_distance_m <= 1
             else f"mapped source is {conflict_distance_miles:.1f} mi from CPW conflict habitat"
         )
         summary = (
-            f"Human-food priority {relative_score}/100 with {len(security_cells)} "
-            "30 m public-land security options and night/dawn corridor ensembles. "
-            "Routes stop at a half-mile caution radius; verify fresh sign and legal access."
+            f"Human-food priority {relative_score}/100; {source['sourceCount']} records "
+            f"form {footprint_parts} mapped attraction "
+            f"{'patch' if footprint_parts == 1 else 'patches'} covering "
+            f"{footprint_acres:.0f} acres. Routes stop half a mile from the full "
+            "footprint; verify fresh sign and legal access."
         )
         target_properties = {
             "kind": "target",
@@ -2617,6 +2931,10 @@ def build_human_food_analysis(
             "sourceManager": source["manager"],
             "sourceInventory": source["inventory"],
             "sourceCount": int(source["sourceCount"]),
+            "sourceMembers": source_members,
+            "sourceFootprintAcres": round(footprint_acres),
+            "sourceFootprintParts": int(footprint_parts),
+            "sourceExtentMiles": round(source_extent_miles, 2),
             "huntCode": HUNT_CODE,
             "gmu": int(source["gmu"]),
             "relativeScore": relative_score,
@@ -2625,9 +2943,14 @@ def build_human_food_analysis(
             "securityOptions": len(security_cells),
             "reason1": conflict_reason,
             "reason2": (
-                f"{source['sourceCount']} mapped campsite/habitation records converge here"
+                f"{source['sourceCount']} records form {footprint_parts} mapped attraction "
+                f"{'patch' if footprint_parts == 1 else 'patches'} across "
+                f"{source_extent_miles:.1f} mi"
                 if source["sourceCount"] > 1
-                else f"mapped {source['category'].lower()} supplies the human-food hypothesis"
+                else (
+                    f"mapped {source['category'].lower()} plus nearby developed land "
+                    "define the attraction footprint"
+                )
             ),
             "reason3": (
                 f"{len(security_cells)} distinct federal-land security areas survived "
@@ -2643,27 +2966,57 @@ def build_human_food_analysis(
         source_feature = as_feature(source_point, target_properties)
         source_features.append(source_feature)
         features.append(source_feature)
-        features.append(
-            as_feature(
-                source_caution_geometry(
-                    source_point,
-                    refinement["forward"],
-                    fine_inverse,
-                    float(refinement["pixelMapM"]),
-                    fine_pixel_ground_m,
+        source_area_feature = as_feature(
+            source_area_geometry,
+            {
+                "kind": "source-area",
+                "targetId": target_id,
+                "sourceName": source["name"],
+                "sourceCount": int(source["sourceCount"]),
+                "footprintAcres": round(footprint_acres),
+                "footprintParts": int(footprint_parts),
+                "meaning": (
+                    "Human-food attraction hypothesis from source-record buffers and "
+                    "nearby dense LANDFIRE development; not confirmed food access."
                 ),
+            },
+        )
+        source_area_features.append(source_area_feature)
+        features.append(source_area_feature)
+        source_buffer_feature = as_feature(
+            caution_geometry,
+            {
+                "kind": "source-buffer",
+                "targetId": target_id,
+                "sourceName": source["name"],
+                "radiusMiles": round(SOURCE_CAUTION_RADIUS_M / 1_609.344, 2),
+                "bufferBasis": "distance from the full source-attraction footprint",
+                "meaning": (
+                    "Analysis caution radius around the complete attraction footprint; "
+                    "routes stop here. This is not a statutory hunting boundary."
+                ),
+            },
+        )
+        source_buffer_features.append(source_buffer_feature)
+        features.append(source_buffer_feature)
+
+        for member_index, member in enumerate(source["members"], start=1):
+            member_feature = as_feature(
+                member["point"],
                 {
-                    "kind": "source-buffer",
+                    "kind": "source-member",
                     "targetId": target_id,
-                    "sourceName": source["name"],
-                    "radiusMiles": round(SOURCE_CAUTION_RADIUS_M / 1_609.344, 2),
-                    "meaning": (
-                        "Analysis caution radius; routes stop here. "
-                        "This is not a statutory hunting boundary."
-                    ),
+                    "memberId": f"{target_id}-member-{member_index}",
+                    "name": str(member["name"]),
+                    "category": str(member["category"]),
+                    "manager": str(member["manager"]),
+                    "inventory": str(member["inventory"]),
+                    "capacity": member.get("capacity"),
+                    "meaning": "Contributing mapped record; not confirmed food access.",
                 },
             )
-        )
+            source_member_features.append(member_feature)
+            features.append(member_feature)
 
         for option_index, security_cell in enumerate(security_cells, start=1):
             option_label = chr(64 + option_index)
@@ -2679,31 +3032,59 @@ def build_human_food_analysis(
                 if nearby
                 else f"GMU {int(refinement['gmu'][security_cell])} cover"
             )
-            route, ensemble_routes, route_agreement = corridor_route_ensemble(
-                security_cell,
-                source_cell,
-                refinement["nightCost"],
-                refinement["dawnCost"],
-                fine_pixel_ground_m,
-                seed=rank * 100 + option_index,
+            route, ensemble_routes, route_agreement, portal_count = (
+                corridor_route_ensemble(
+                    security_cell,
+                    source_mask,
+                    refinement["sourceCautionMask"],
+                    refinement["nightCost"],
+                    refinement["dawnCost"],
+                    fine_pixel_ground_m,
+                    seed=rank * 100 + option_index,
+                )
             )
             route_rows = np.array([cell[0] for cell in route], dtype=int)
             route_columns = np.array([cell[1] for cell in route], dtype=int)
-            direct_distance_m = math.hypot(
-                security_cell[0] - source_cell[0],
-                security_cell[1] - source_cell[1],
-            ) * fine_pixel_ground_m
-            modeled_route_m = route_length_m(route, fine_pixel_ground_m)
+            direct_distance_m = float(
+                refinement["sourceDistanceM"][security_cell]
+            )
+            (
+                corridor_geometry,
+                approach_projected,
+                projected_corridor,
+            ) = route_geometry_outside_zone(
+                fine_transform,
+                fine_inverse,
+                route,
+                projected_caution,
+            )
+            map_units_per_ground_m = abs(fine_transform.a) / fine_pixel_ground_m
+            modeled_route_m = projected_corridor.length / map_units_per_ground_m
             approach_cell = route[-1]
-            approach_distance_m = math.hypot(
-                approach_cell[0] - source_cell[0],
-                approach_cell[1] - source_cell[1],
-            ) * fine_pixel_ground_m
+            approach_distance_m = (
+                approach_projected.distance(projected_source_area)
+                / map_units_per_ground_m
+            )
+            approach_point = Point(
+                *fine_inverse.transform(
+                    approach_projected.x,
+                    approach_projected.y,
+                )
+            )
+            arrival_member, _ = min(
+                refinement["sourceMemberCells"],
+                key=lambda item: math.hypot(
+                    approach_cell[0] - item[1][0],
+                    approach_cell[1] - item[1][1],
+                ),
+            )
+            arrival_source = str(arrival_member["name"])
             option_name = f"H{rank:02d}{option_label} · {nearby_name}"
             option_summary = (
-                f"{direct_distance_m / 1_609.344:.1f} mi from {source['name']}; "
+                f"{direct_distance_m / 1_609.344:.1f} mi from the nearest source patch; "
                 f"representative corridor {modeled_route_m / 1_609.344:.1f} mi to the "
-                f"{approach_distance_m / 1_609.344:.1f} mi caution radius; "
+                f"{approach_distance_m / 1_609.344:.1f} mi footprint caution edge "
+                f"near {arrival_source}; "
                 f"security score {round(float(refinement['securityScore'][security_cell]) * 100)}/100. "
                 "Verify ownership, closures, current sign, wind, and safe shooting conditions."
             )
@@ -2714,6 +3095,8 @@ def build_human_food_analysis(
                 "optionLabel": option_label,
                 "name": option_name,
                 "sourceName": source["name"],
+                "arrivalSource": arrival_source,
+                "portalCount": portal_count,
                 "gmu": int(refinement["gmu"][security_cell]),
                 "securityScore": round(
                     float(refinement["securityScore"][security_cell]) * 100
@@ -2777,6 +3160,20 @@ def build_human_food_analysis(
             )
             security_features.append(security_feature)
             features.append(security_feature)
+            portal_feature = as_feature(
+                approach_point,
+                {
+                    "kind": "source-portal",
+                    **common_properties,
+                    "name": f"{option_name} modeled arrival portal",
+                    "meaning": (
+                        "Representative corridor endpoint on the analysis caution edge; "
+                        "not an observed crossing or setup recommendation."
+                    ),
+                },
+            )
+            source_portal_features.append(portal_feature)
+            features.append(portal_feature)
             features.append(
                 as_feature(
                     corridor_band_geometry(
@@ -2784,6 +3181,7 @@ def build_human_food_analysis(
                         fine_inverse,
                         ensemble_routes,
                         fine_pixel_ground_m,
+                        projected_caution,
                     ),
                     {
                         "kind": "corridor-band",
@@ -2797,11 +3195,11 @@ def build_human_food_analysis(
                 )
             )
             corridor_feature = as_feature(
-                route_geometry(fine_transform, fine_inverse, route),
+                corridor_geometry,
                 {
                     "kind": "corridor",
                     **common_properties,
-                    "name": f"{option_name} → {source['name']} caution radius",
+                    "name": f"{option_name} → source-footprint caution edge",
                     "meaning": (
                         "Representative route within the broader uncertainty band; "
                         "not an observed animal trail."
@@ -2820,13 +3218,17 @@ def build_human_food_analysis(
         "imageryDate": None,
         "droughtUpdated": None,
         "mode": "human-food",
-        "methodVersion": "0.3-behavior-corridors",
+        "methodVersion": "0.4-source-footprints",
         "scoreMeaning": (
             "Relative human-food priority led by CPW historical conflict overlap; "
-            "corridor bands are ensembles of modeled movement hypotheses, not bear "
-            "probability, observed trails, or current sightings."
+            "multipart source footprints and corridor bands are modeled hypotheses, "
+            "not bear probability, confirmed food access, observed trails, or current "
+            "sightings."
         ),
         "sourceCount": len(source_features),
+        "sourceMemberCount": len(source_member_features),
+        "sourceAreaCount": len(source_area_features),
+        "sourcePortalCount": len(source_portal_features),
         "securityOptionCount": len(security_features),
         "corridorBandCount": len(corridor_features),
         "screeningResolutionM": round(pixel_ground_m),
@@ -2837,6 +3239,24 @@ def build_human_food_analysis(
         ),
         "corridorEnsembleMembers": CORRIDOR_ENSEMBLE_MEMBERS,
         "corridorScenarios": ["night approach", "dawn return"],
+        "sourceFootprintModel": {
+            "meaning": (
+                "Multipart attraction hypothesis built without a convex hull; "
+                "individual source records remain visible"
+            ),
+            "anchorRadiiM": {
+                "campground": 120,
+                "swaCampsite": 160,
+                "developedArea": 240,
+                "populatedPlace": 320,
+            },
+            "developedPatchLinkRadiusM": SOURCE_DEVELOPED_LINK_RADIUS_M,
+            "developedPatchMaximumReachM": SOURCE_DEVELOPED_MAX_REACH_M,
+            "routeDestination": (
+                "least-cost reachable cell on any source-footprint patch; displayed "
+                "routes stop at the footprint-based caution edge"
+            ),
+        },
         "costModel": {
             "meaning": "Dimensionless relative traversal cost; lower is easier",
             "commonWeights": {
@@ -2912,9 +3332,16 @@ def build_human_food_analysis(
         json.dumps(collection, separators=(",", ":")),
         encoding="utf-8",
     )
-    write_human_food_gpx(source_features, security_features, corridor_features)
+    write_human_food_gpx(
+        source_features,
+        source_member_features,
+        source_buffer_features,
+        security_features,
+        corridor_features,
+    )
     log(
-        f"Wrote {len(source_features)} human-food sources, "
+        f"Wrote {len(source_features)} human-food source clusters, "
+        f"{len(source_member_features)} contributing records, "
         f"{len(security_features)} security options, and "
         f"{len(corridor_features)} routes"
     )

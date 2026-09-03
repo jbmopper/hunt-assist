@@ -37,9 +37,9 @@ npm run check
   human-food exposure from developed campgrounds/SWA campsites plus CPW
   bear-human conflict areas.
 - Adds a BE012O1R human-food targeting workspace with eight ranked,
-  conflict-linked campsite/habitation sources, two to five nearby federal-land
-  security areas per source, 30-meter security-to-source corridor ensembles,
-  copyable option coordinates, aerial imagery, and a GPX download.
+  conflict-linked campsite/habitation clusters, multipart attraction footprints,
+  two to five nearby federal-land security areas per cluster, 30-meter corridor
+  ensembles, copyable option coordinates, aerial imagery, and a GPX download.
 - Clusters developed camping locations and shows their manager, source vintage,
   capacity/use details when available, and an official source link on click.
 - Saves starred hunt codes in browser storage on the current device.
@@ -88,6 +88,23 @@ security-cover options 1–3.2 miles from the source. Every endpoint is gated to
 mapped BLM, USFS, or Bureau of Reclamation land. Ownership boundaries are still
 generalized and must be parcel-verified.
 
+### Source-attraction footprints
+
+The target is not reduced to one campground pin. Every contributing campground,
+SWA campsite, LANDFIRE developed-area anchor, or GNIS populated-place record
+remains in the output. Each record receives a conservative positional footprint
+(120 m for campgrounds, 160 m for SWA campsites, 240 m for developed-area
+anchors, and 320 m for populated-place anchors). Dense LANDFIRE development
+connected within 450 m of a record can extend its patch, capped at 1 km from the
+nearest contributing record.
+
+Those pieces are unioned as a multipart attraction hypothesis. The builder does
+not draw a convex hull, so an undeveloped gap between two facilities is not
+converted into source habitat. The map shows the contributing records, the
+resulting patches, and a caution boundary measured 0.5 miles outward from the
+entire footprint. These dimensions represent source-location uncertainty and
+nearby development—not a claim that food exists throughout the polygon.
+
 ### Movement cost and corridor uncertainty
 
 Movement is solved separately for a night approach and a dawn return. All soft
@@ -109,11 +126,14 @@ that a bear cannot cross them. Mapped water and slopes of at least 50 degrees
 receive strong barrier costs; cells outside the hunt units are closed.
 
 For each security option, the builder solves the night and dawn paths plus
-deterministically perturbed near-optimal paths. The map displays their buffered
-union as a corridor band and one representative centerline for GPX export. A
-wide band or low night/dawn agreement means the inputs do not identify one
-stable route. Every route stops at a 0.5-mile source caution ring. That ring is
-an analysis guardrail, not a legal setback.
+deterministically perturbed near-optimal paths. Each solution can terminate at
+the least-cost reachable cell on any attraction patch; it is not forced toward
+the primary record or a cluster centroid. The map displays the buffered union as
+a corridor band, one representative centerline for GPX export, and the modeled
+arrival portal where that line meets the footprint-based caution edge. A wide
+band, multiple portal groups, or low night/dawn agreement means the inputs do
+not identify one stable route. The 0.5-mile caution edge is an analysis
+guardrail, not a legal setback.
 
 The cost coefficients are transparent, literature-informed hypotheses—not a
 resource- or step-selection model fitted to local bear telemetry. Colorado GPS
