@@ -1,58 +1,1074 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Colorado Hunt Finder" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata><name>BE012O1R desk-scouting targets</name></metadata>
-  <wpt lat="40.070375" lon="-107.656827"><name>T01 · Sawmill Mountain</name><desc>Relative desk score 95/100; GMU 23; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
-  <wpt lat="39.851419" lon="-107.872422"><name>T02 · Bloodsworth Pond</name><desc>Relative desk score 94/100; GMU 23; Rocky Mountain Gambel Oak-Mixed Montane Shrubland. Ground-truth before committing a hunt.</desc></wpt>
-  <wpt lat="39.933093" lon="-107.531512"><name>T03 · Peltier Lake</name><desc>Relative desk score 93/100; GMU 24; Inter-Mountain Basins Montane Sagebrush Steppe. Ground-truth before committing a hunt.</desc></wpt>
-  <wpt lat="40.221272" lon="-107.344213"><name>T04 · Beaver Flat Tops</name><desc>Relative desk score 92/100; GMU 12; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
-  <wpt lat="40.206867" lon="-107.194643"><name>T05 · Bunker Creek</name><desc>Relative desk score 91/100; GMU 12; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
-  <wpt lat="40.226417" lon="-107.220245"><name>T06 · Gill Reservoir</name><desc>Relative desk score 91/100; GMU 231; Rocky Mountain Subalpine-Montane Mesic Meadow. Ground-truth before committing a hunt.</desc></wpt>
-  <wpt lat="40.255217" lon="-107.108405"><name>T07 · Trout Creek School Ditch</name><desc>Relative desk score 90/100; GMU 131; Rocky Mountain Gambel Oak-Mixed Montane Shrubland. Ground-truth before committing a hunt.</desc></wpt>
-  <wpt lat="39.773790" lon="-107.773383"><name>T08 · Buckskin Lake</name><desc>Relative desk score 90/100; GMU 33; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
-  <wpt lat="39.967181" lon="-107.540270"><name>T09 · Bailey Lake</name><desc>Relative desk score 89/100; GMU 24; Rocky Mountain Aspen Forest and Woodland. Ground-truth before committing a hunt.</desc></wpt>
-  <trk><name>Modeled concealed route for T01 · Sawmill Mountain</name><trkseg>
-    <trkpt lat="40.069344" lon="-107.657500" />
-    <trkpt lat="40.069344" lon="-107.659522" />
-    <trkpt lat="40.069344" lon="-107.661543" />
+  <metadata><name>BE012O1R human-food corridors</name></metadata>
+  <wpt lat="39.994700" lon="-107.242789"><name>H01 · Trappers Lake/shephards Rim Campground · CONTEXT</name><desc>Human-food priority 97/100 with 3 modeled public-land security options. The source is context only; verify fresh sign, legal access, and a safe setup away from development.</desc><type>Human-food context — not a setup location</type></wpt>
+  <wpt lat="39.673250" lon="-107.699043"><name>H02 · Rifle Falls State Park · CONTEXT</name><desc>Human-food priority 97/100 with 4 modeled public-land security options. The source is context only; verify fresh sign, legal access, and a safe setup away from development.</desc><type>Human-food context — not a setup location</type></wpt>
+  <wpt lat="40.006951" lon="-107.426122"><name>H03 · Marvine Campground · CONTEXT</name><desc>Human-food priority 96/100 with 5 modeled public-land security options. The source is context only; verify fresh sign, legal access, and a safe setup away from development.</desc><type>Human-food context — not a setup location</type></wpt>
+  <wpt lat="40.045986" lon="-107.070061"><name>H04 · Bear Lake Campground · CONTEXT</name><desc>Human-food priority 96/100 with 5 modeled public-land security options. The source is context only; verify fresh sign, legal access, and a safe setup away from development.</desc><type>Human-food context — not a setup location</type></wpt>
+  <wpt lat="40.058426" lon="-107.019401"><name>H05 · Bear River Campground · CONTEXT</name><desc>Human-food priority 96/100 with 5 modeled public-land security options. The source is context only; verify fresh sign, legal access, and a safe setup away from development.</desc><type>Human-food context — not a setup location</type></wpt>
+  <wpt lat="39.797229" lon="-107.160566"><name>H06 · Sweetwater Lake Campground · CONTEXT</name><desc>Human-food priority 95/100 with 5 modeled public-land security options. The source is context only; verify fresh sign, legal access, and a safe setup away from development.</desc><type>Human-food context — not a setup location</type></wpt>
+  <wpt lat="40.186666" lon="-107.086231"><name>H07 · Chapman Reservoir Campground · CONTEXT</name><desc>Human-food priority 95/100 with 5 modeled public-land security options. The source is context only; verify fresh sign, legal access, and a safe setup away from development.</desc><type>Human-food context — not a setup location</type></wpt>
+  <wpt lat="40.270915" lon="-107.431541"><name>H08 · Indian Run SWA · CONTEXT</name><desc>Human-food priority 95/100 with 3 modeled public-land security options. The source is context only; verify fresh sign, legal access, and a safe setup away from development.</desc><type>Human-food context — not a setup location</type></wpt>
+  <wpt lat="39.970796" lon="-107.278861"><name>H01A · Clinard Lake</name><desc>2.5 mi from Trappers Lake/shephards Rim Campground; modeled route 2.8 mi; security score 69/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.026537" lon="-107.262691"><name>H01B · Lynx Creek</name><desc>2.5 mi from Trappers Lake/shephards Rim Campground; modeled route 2.7 mi; security score 64/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.018798" lon="-107.240458"><name>H01C · Skinny Fish Creek</name><desc>1.7 mi from Trappers Lake/shephards Rim Campground; modeled route 1.9 mi; security score 54/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.699702" lon="-107.681755"><name>H02A · Sawmill Gulch</name><desc>2.0 mi from Rifle Falls State Park; modeled route 2.2 mi; security score 73/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.697110" lon="-107.653458"><name>H02B · West Elk Reservoir</name><desc>2.9 mi from Rifle Falls State Park; modeled route 3.3 mi; security score 76/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.676890" lon="-107.665585"><name>H02C · West Elk Reservoir</name><desc>1.8 mi from Rifle Falls State Park; modeled route 1.9 mi; security score 61/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.695555" lon="-107.740370"><name>H02D · Big Parker Creek</name><desc>2.7 mi from Rifle Falls State Park; modeled route 2.8 mi; security score 62/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.028085" lon="-107.414282"><name>H03A · East Marvine Creek</name><desc>1.6 mi from Marvine Campground; modeled route 1.8 mi; security score 68/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.023441" lon="-107.435841"><name>H03B · West Marvine Creek</name><desc>1.2 mi from Marvine Campground; modeled route 1.4 mi; security score 68/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.979573" lon="-107.414282"><name>H03C · Slide Lake</name><desc>2.0 mi from Marvine Campground; modeled route 2.3 mi; security score 62/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.007445" lon="-107.404849"><name>H03D · Muskrat Lakes</name><desc>1.1 mi from Marvine Campground; modeled route 1.2 mi; security score 62/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.020862" lon="-107.401481"><name>H03E · Johnson Lake</name><desc>1.6 mi from Marvine Campground; modeled route 1.7 mi; security score 61/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.058000" lon="-107.041032"><name>H04A · Coal Creek</name><desc>1.7 mi from Bear Lake Campground; modeled route 2.2 mi; security score 66/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.040465" lon="-107.100994"><name>H04B · Smith Creek</name><desc>1.7 mi from Bear Lake Campground; modeled route 1.9 mi; security score 65/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.067797" lon="-107.051138"><name>H04C · East Coal Creek</name><desc>1.8 mi from Bear Lake Campground; modeled route 1.9 mi; security score 65/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.053359" lon="-107.099647"><name>H04D · Mud Mandall Lake</name><desc>1.6 mi from Bear Lake Campground; modeled route 1.9 mi; security score 64/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.072437" lon="-107.072023"><name>H04E · East Coal Creek</name><desc>1.8 mi from Bear Lake Campground; modeled route 1.9 mi; security score 62/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.089449" lon="-107.012061"><name>H05A · Maggies Nipple</name><desc>2.2 mi from Bear River Campground; modeled route 2.5 mi; security score 69/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.068828" lon="-106.996565"><name>H05B · Gardner Creek</name><desc>1.4 mi from Bear River Campground; modeled route 1.5 mi; security score 67/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.058000" lon="-107.041032"><name>H05C · Coal Creek</name><desc>1.1 mi from Bear River Campground; modeled route 1.3 mi; security score 66/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.081717" lon="-107.049116"><name>H05D · Maggies Nipple</name><desc>2.2 mi from Bear River Campground; modeled route 2.3 mi; security score 62/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.031696" lon="-107.047095"><name>H05E · Rams Horn Lake</name><desc>2.4 mi from Bear River Campground; modeled route 2.9 mi; security score 60/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.829691" lon="-107.142092"><name>H06A · Hack Lake</name><desc>2.4 mi from Sweetwater Lake Campground; modeled route 2.6 mi; security score 75/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.820895" lon="-107.181842"><name>H06B · Turret Creek</name><desc>2.0 mi from Sweetwater Lake Campground; modeled route 2.1 mi; security score 69/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.823482" lon="-107.164999"><name>H06C · Johnny Meyers Lake</name><desc>1.8 mi from Sweetwater Lake Campground; modeled route 2.0 mi; security score 57/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.785181" lon="-107.177800"><name>H06D · Darnell Creek</name><desc>1.2 mi from Sweetwater Lake Campground; modeled route 1.4 mi; security score 57/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="39.815203" lon="-107.204750"><name>H06E · Cross Creek</name><desc>2.7 mi from Sweetwater Lake Campground; modeled route 2.8 mi; security score 63/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.203265" lon="-107.105710"><name>H07A · Little Oak Creek</name><desc>1.5 mi from Chapman Reservoir Campground; modeled route 1.6 mi; security score 63/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.171869" lon="-107.106384"><name>H07B · Chapman Reservoir</name><desc>1.5 mi from Chapman Reservoir Campground; modeled route 1.6 mi; security score 61/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.219729" lon="-107.099647"><name>H07C · Last Chance Ditch</name><desc>2.4 mi from Chapman Reservoir Campground; modeled route 2.6 mi; security score 65/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.189885" lon="-107.114469"><name>H07D · Little Oak Creek</name><desc>1.5 mi from Chapman Reservoir Campground; modeled route 1.6 mi; security score 59/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.168780" lon="-107.059896"><name>H07E · Simon Reservoir Number 1</name><desc>1.9 mi from Chapman Reservoir Campground; modeled route 2.1 mi; security score 59/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.238247" lon="-107.398112"><name>H08A · Elk Draw</name><desc>2.9 mi from Indian Run SWA; modeled route 3.2 mi; security score 75/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.270126" lon="-107.391375"><name>H08B · Sagebrush Reservoir Number 1</name><desc>2.1 mi from Indian Run SWA; modeled route 2.3 mi; security score 58/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <wpt lat="40.225902" lon="-107.431799"><name>H08C · Pine Creek</name><desc>3.1 mi from Indian Run SWA; modeled route 3.4 mi; security score 64/100. Verify ownership, closures, current sign, wind, and safe shooting conditions.</desc><type>Modeled security option — verify access and sign</type></wpt>
+  <trk><name>H01A · Clinard Lake → Trappers Lake/shephards Rim Campground</name><trkseg>
+    <trkpt lat="39.970796" lon="-107.278861" />
+    <trkpt lat="39.971312" lon="-107.278861" />
+    <trkpt lat="39.972345" lon="-107.277513" />
+    <trkpt lat="39.973377" lon="-107.277513" />
+    <trkpt lat="39.974410" lon="-107.277513" />
+    <trkpt lat="39.975442" lon="-107.276839" />
+    <trkpt lat="39.976475" lon="-107.275492" />
+    <trkpt lat="39.977508" lon="-107.275492" />
+    <trkpt lat="39.978540" lon="-107.274818" />
+    <trkpt lat="39.979573" lon="-107.274144" />
+    <trkpt lat="39.980605" lon="-107.273471" />
+    <trkpt lat="39.981638" lon="-107.272123" />
+    <trkpt lat="39.982670" lon="-107.270776" />
+    <trkpt lat="39.983703" lon="-107.269428" />
+    <trkpt lat="39.984735" lon="-107.268081" />
+    <trkpt lat="39.985768" lon="-107.266733" />
+    <trkpt lat="39.986800" lon="-107.265386" />
+    <trkpt lat="39.986800" lon="-107.264038" />
+    <trkpt lat="39.986800" lon="-107.262691" />
+    <trkpt lat="39.986800" lon="-107.261343" />
+    <trkpt lat="39.987316" lon="-107.259996" />
+    <trkpt lat="39.987832" lon="-107.258648" />
+    <trkpt lat="39.988349" lon="-107.257301" />
+    <trkpt lat="39.988349" lon="-107.255953" />
+    <trkpt lat="39.988865" lon="-107.254606" />
+    <trkpt lat="39.989897" lon="-107.253259" />
+    <trkpt lat="39.989897" lon="-107.251911" />
+    <trkpt lat="39.990413" lon="-107.250564" />
+    <trkpt lat="39.991446" lon="-107.249216" />
+    <trkpt lat="39.991962" lon="-107.247869" />
+    <trkpt lat="39.992994" lon="-107.246521" />
+    <trkpt lat="39.994027" lon="-107.245174" />
+    <trkpt lat="39.994543" lon="-107.243826" />
+    <trkpt lat="39.994543" lon="-107.242479" />
   </trkseg></trk>
-  <trk><name>Modeled concealed route for T02 · Bloodsworth Pond</name><trkseg>
-    <trkpt lat="39.851936" lon="-107.873096" />
-    <trkpt lat="39.852453" lon="-107.875117" />
-    <trkpt lat="39.852453" lon="-107.877138" />
+  <trk><name>H01B · Lynx Creek → Trappers Lake/shephards Rim Campground</name><trkseg>
+    <trkpt lat="40.026537" lon="-107.262691" />
+    <trkpt lat="40.026021" lon="-107.262017" />
+    <trkpt lat="40.024989" lon="-107.261343" />
+    <trkpt lat="40.023957" lon="-107.261343" />
+    <trkpt lat="40.022925" lon="-107.261343" />
+    <trkpt lat="40.021893" lon="-107.261343" />
+    <trkpt lat="40.020862" lon="-107.261343" />
+    <trkpt lat="40.019830" lon="-107.261343" />
+    <trkpt lat="40.018798" lon="-107.261343" />
+    <trkpt lat="40.017766" lon="-107.261343" />
+    <trkpt lat="40.016734" lon="-107.259996" />
+    <trkpt lat="40.015702" lon="-107.258648" />
+    <trkpt lat="40.014670" lon="-107.257301" />
+    <trkpt lat="40.014670" lon="-107.255953" />
+    <trkpt lat="40.014154" lon="-107.254606" />
+    <trkpt lat="40.013122" lon="-107.253259" />
+    <trkpt lat="40.012606" lon="-107.251911" />
+    <trkpt lat="40.012090" lon="-107.250564" />
+    <trkpt lat="40.011058" lon="-107.249216" />
+    <trkpt lat="40.010026" lon="-107.247869" />
+    <trkpt lat="40.008994" lon="-107.247195" />
+    <trkpt lat="40.007961" lon="-107.247195" />
+    <trkpt lat="40.006929" lon="-107.247195" />
+    <trkpt lat="40.005897" lon="-107.247195" />
+    <trkpt lat="40.004865" lon="-107.247195" />
+    <trkpt lat="40.003833" lon="-107.247195" />
+    <trkpt lat="40.002801" lon="-107.247195" />
+    <trkpt lat="40.001769" lon="-107.247195" />
+    <trkpt lat="40.000736" lon="-107.247195" />
+    <trkpt lat="39.999704" lon="-107.247195" />
+    <trkpt lat="39.998672" lon="-107.247195" />
+    <trkpt lat="39.997640" lon="-107.245847" />
+    <trkpt lat="39.996607" lon="-107.245174" />
+    <trkpt lat="39.995575" lon="-107.243826" />
+    <trkpt lat="39.994543" lon="-107.242479" />
   </trkseg></trk>
-  <trk><name>Modeled concealed route for T03 · Peltier Lake</name><trkseg>
-    <trkpt lat="39.933093" lon="-107.531512" />
-    <trkpt lat="39.934643" lon="-107.531512" />
-    <trkpt lat="39.936193" lon="-107.531512" />
+  <trk><name>H01C · Skinny Fish Creek → Trappers Lake/shephards Rim Campground</name><trkseg>
+    <trkpt lat="40.018798" lon="-107.240458" />
+    <trkpt lat="40.018282" lon="-107.241131" />
+    <trkpt lat="40.017250" lon="-107.241805" />
+    <trkpt lat="40.016218" lon="-107.243152" />
+    <trkpt lat="40.015186" lon="-107.243826" />
+    <trkpt lat="40.014154" lon="-107.245174" />
+    <trkpt lat="40.013122" lon="-107.245847" />
+    <trkpt lat="40.012090" lon="-107.247195" />
+    <trkpt lat="40.011058" lon="-107.247195" />
+    <trkpt lat="40.010026" lon="-107.247195" />
+    <trkpt lat="40.008994" lon="-107.247195" />
+    <trkpt lat="40.007961" lon="-107.247195" />
+    <trkpt lat="40.006929" lon="-107.247195" />
+    <trkpt lat="40.005897" lon="-107.247195" />
+    <trkpt lat="40.004865" lon="-107.247195" />
+    <trkpt lat="40.003833" lon="-107.247195" />
+    <trkpt lat="40.002801" lon="-107.247195" />
+    <trkpt lat="40.001769" lon="-107.247195" />
+    <trkpt lat="40.000736" lon="-107.247195" />
+    <trkpt lat="39.999704" lon="-107.247195" />
+    <trkpt lat="39.998672" lon="-107.247195" />
+    <trkpt lat="39.997640" lon="-107.245847" />
+    <trkpt lat="39.996607" lon="-107.245174" />
+    <trkpt lat="39.995575" lon="-107.243826" />
+    <trkpt lat="39.994543" lon="-107.242479" />
   </trkseg></trk>
-  <trk><name>Modeled concealed route for T04 · Beaver Flat Tops</name><trkseg>
-    <trkpt lat="40.221272" lon="-107.344213" />
-    <trkpt lat="40.219729" lon="-107.344213" />
-    <trkpt lat="40.218186" lon="-107.343539" />
+  <trk><name>H02A · Sawmill Gulch → Rifle Falls State Park</name><trkseg>
+    <trkpt lat="39.699702" lon="-107.681755" />
+    <trkpt lat="39.699702" lon="-107.682429" />
+    <trkpt lat="39.698665" lon="-107.683776" />
+    <trkpt lat="39.697629" lon="-107.685124" />
+    <trkpt lat="39.696592" lon="-107.686471" />
+    <trkpt lat="39.695555" lon="-107.687145" />
+    <trkpt lat="39.694518" lon="-107.687145" />
+    <trkpt lat="39.693481" lon="-107.687819" />
+    <trkpt lat="39.692444" lon="-107.688492" />
+    <trkpt lat="39.691408" lon="-107.689166" />
+    <trkpt lat="39.690371" lon="-107.689840" />
+    <trkpt lat="39.689334" lon="-107.689840" />
+    <trkpt lat="39.688297" lon="-107.689840" />
+    <trkpt lat="39.687260" lon="-107.689840" />
+    <trkpt lat="39.686223" lon="-107.689840" />
+    <trkpt lat="39.685186" lon="-107.689840" />
+    <trkpt lat="39.684149" lon="-107.689840" />
+    <trkpt lat="39.683112" lon="-107.689840" />
+    <trkpt lat="39.682075" lon="-107.689840" />
+    <trkpt lat="39.681038" lon="-107.689840" />
+    <trkpt lat="39.680001" lon="-107.689840" />
+    <trkpt lat="39.678964" lon="-107.689840" />
+    <trkpt lat="39.677927" lon="-107.691187" />
+    <trkpt lat="39.676890" lon="-107.692535" />
+    <trkpt lat="39.675853" lon="-107.693882" />
+    <trkpt lat="39.674816" lon="-107.695230" />
+    <trkpt lat="39.674297" lon="-107.696577" />
+    <trkpt lat="39.674297" lon="-107.697925" />
+    <trkpt lat="39.673260" lon="-107.699272" />
   </trkseg></trk>
-  <trk><name>Modeled concealed route for T05 · Bunker Creek</name><trkseg>
-    <trkpt lat="40.206352" lon="-107.194643" />
-    <trkpt lat="40.207896" lon="-107.194643" />
-    <trkpt lat="40.209439" lon="-107.194643" />
+  <trk><name>H02B · West Elk Reservoir → Rifle Falls State Park</name><trkseg>
+    <trkpt lat="39.697110" lon="-107.653458" />
+    <trkpt lat="39.696592" lon="-107.653458" />
+    <trkpt lat="39.695555" lon="-107.654132" />
+    <trkpt lat="39.694518" lon="-107.654805" />
+    <trkpt lat="39.693481" lon="-107.656153" />
+    <trkpt lat="39.692444" lon="-107.656827" />
+    <trkpt lat="39.691408" lon="-107.656827" />
+    <trkpt lat="39.690371" lon="-107.656827" />
+    <trkpt lat="39.689334" lon="-107.656827" />
+    <trkpt lat="39.688297" lon="-107.657500" />
+    <trkpt lat="39.687260" lon="-107.658848" />
+    <trkpt lat="39.686741" lon="-107.660195" />
+    <trkpt lat="39.685705" lon="-107.661543" />
+    <trkpt lat="39.684668" lon="-107.662890" />
+    <trkpt lat="39.683631" lon="-107.664238" />
+    <trkpt lat="39.682594" lon="-107.665585" />
+    <trkpt lat="39.681557" lon="-107.666933" />
+    <trkpt lat="39.680520" lon="-107.668280" />
+    <trkpt lat="39.679483" lon="-107.669628" />
+    <trkpt lat="39.678445" lon="-107.670975" />
+    <trkpt lat="39.677408" lon="-107.672323" />
+    <trkpt lat="39.676890" lon="-107.673670" />
+    <trkpt lat="39.676371" lon="-107.675018" />
+    <trkpt lat="39.676371" lon="-107.676365" />
+    <trkpt lat="39.676371" lon="-107.677713" />
+    <trkpt lat="39.676371" lon="-107.679060" />
+    <trkpt lat="39.675853" lon="-107.680407" />
+    <trkpt lat="39.675853" lon="-107.681755" />
+    <trkpt lat="39.675853" lon="-107.683102" />
+    <trkpt lat="39.675853" lon="-107.684450" />
+    <trkpt lat="39.675334" lon="-107.685797" />
+    <trkpt lat="39.675334" lon="-107.687145" />
+    <trkpt lat="39.675334" lon="-107.688492" />
+    <trkpt lat="39.675334" lon="-107.689840" />
+    <trkpt lat="39.675334" lon="-107.691187" />
+    <trkpt lat="39.674816" lon="-107.692535" />
+    <trkpt lat="39.674816" lon="-107.693882" />
+    <trkpt lat="39.674297" lon="-107.695230" />
+    <trkpt lat="39.674297" lon="-107.696577" />
+    <trkpt lat="39.674297" lon="-107.697925" />
+    <trkpt lat="39.673260" lon="-107.699272" />
   </trkseg></trk>
-  <trk><name>Modeled concealed route for T06 · Gill Reservoir</name><trkseg>
-    <trkpt lat="40.226931" lon="-107.220245" />
-    <trkpt lat="40.227445" lon="-107.222267" />
-    <trkpt lat="40.227445" lon="-107.224288" />
+  <trk><name>H02C · West Elk Reservoir → Rifle Falls State Park</name><trkseg>
+    <trkpt lat="39.676890" lon="-107.665585" />
+    <trkpt lat="39.676890" lon="-107.666933" />
+    <trkpt lat="39.676890" lon="-107.668280" />
+    <trkpt lat="39.676371" lon="-107.669628" />
+    <trkpt lat="39.676371" lon="-107.670975" />
+    <trkpt lat="39.676371" lon="-107.672323" />
+    <trkpt lat="39.676371" lon="-107.673670" />
+    <trkpt lat="39.676371" lon="-107.675018" />
+    <trkpt lat="39.676371" lon="-107.676365" />
+    <trkpt lat="39.676371" lon="-107.677713" />
+    <trkpt lat="39.676371" lon="-107.679060" />
+    <trkpt lat="39.675853" lon="-107.680407" />
+    <trkpt lat="39.675853" lon="-107.681755" />
+    <trkpt lat="39.675853" lon="-107.683102" />
+    <trkpt lat="39.675853" lon="-107.684450" />
+    <trkpt lat="39.675334" lon="-107.685797" />
+    <trkpt lat="39.675334" lon="-107.687145" />
+    <trkpt lat="39.675334" lon="-107.688492" />
+    <trkpt lat="39.675334" lon="-107.689840" />
+    <trkpt lat="39.675334" lon="-107.691187" />
+    <trkpt lat="39.674816" lon="-107.692535" />
+    <trkpt lat="39.674816" lon="-107.693882" />
+    <trkpt lat="39.674297" lon="-107.695230" />
+    <trkpt lat="39.674297" lon="-107.696577" />
+    <trkpt lat="39.674297" lon="-107.697925" />
+    <trkpt lat="39.673260" lon="-107.699272" />
   </trkseg></trk>
-  <trk><name>Modeled concealed route for T07 · Trout Creek School Ditch</name><trkseg>
-    <trkpt lat="40.254703" lon="-107.109753" />
-    <trkpt lat="40.256245" lon="-107.108405" />
-    <trkpt lat="40.257788" lon="-107.109079" />
+  <trk><name>H02D · Big Parker Creek → Rifle Falls State Park</name><trkseg>
+    <trkpt lat="39.695555" lon="-107.740370" />
+    <trkpt lat="39.694518" lon="-107.739023" />
+    <trkpt lat="39.694000" lon="-107.737675" />
+    <trkpt lat="39.694000" lon="-107.736328" />
+    <trkpt lat="39.692963" lon="-107.734980" />
+    <trkpt lat="39.691926" lon="-107.733633" />
+    <trkpt lat="39.690889" lon="-107.732285" />
+    <trkpt lat="39.690889" lon="-107.730938" />
+    <trkpt lat="39.690371" lon="-107.729590" />
+    <trkpt lat="39.689852" lon="-107.728243" />
+    <trkpt lat="39.688815" lon="-107.726895" />
+    <trkpt lat="39.687778" lon="-107.725548" />
+    <trkpt lat="39.686741" lon="-107.724200" />
+    <trkpt lat="39.685705" lon="-107.722853" />
+    <trkpt lat="39.685186" lon="-107.721505" />
+    <trkpt lat="39.684668" lon="-107.720158" />
+    <trkpt lat="39.683631" lon="-107.718810" />
+    <trkpt lat="39.683631" lon="-107.717463" />
+    <trkpt lat="39.683112" lon="-107.716115" />
+    <trkpt lat="39.682075" lon="-107.714768" />
+    <trkpt lat="39.681038" lon="-107.714094" />
+    <trkpt lat="39.680001" lon="-107.712747" />
+    <trkpt lat="39.678964" lon="-107.711399" />
+    <trkpt lat="39.677927" lon="-107.710052" />
+    <trkpt lat="39.676890" lon="-107.708704" />
+    <trkpt lat="39.675853" lon="-107.707357" />
+    <trkpt lat="39.674816" lon="-107.706009" />
+    <trkpt lat="39.674816" lon="-107.704662" />
+    <trkpt lat="39.674816" lon="-107.703314" />
+    <trkpt lat="39.674297" lon="-107.701967" />
+    <trkpt lat="39.673260" lon="-107.700620" />
+    <trkpt lat="39.673260" lon="-107.699272" />
   </trkseg></trk>
-  <trk><name>Modeled concealed route for T08 · Buckskin Lake</name><trkseg>
-    <trkpt lat="39.774308" lon="-107.775404" />
-    <trkpt lat="39.774308" lon="-107.773383" />
-    <trkpt lat="39.774308" lon="-107.771362" />
+  <trk><name>H03A · East Marvine Creek → Marvine Campground</name><trkseg>
+    <trkpt lat="40.028085" lon="-107.414282" />
+    <trkpt lat="40.027569" lon="-107.414282" />
+    <trkpt lat="40.026537" lon="-107.413608" />
+    <trkpt lat="40.025505" lon="-107.413608" />
+    <trkpt lat="40.024473" lon="-107.413608" />
+    <trkpt lat="40.023441" lon="-107.414282" />
+    <trkpt lat="40.022409" lon="-107.414282" />
+    <trkpt lat="40.021377" lon="-107.414955" />
+    <trkpt lat="40.020346" lon="-107.416303" />
+    <trkpt lat="40.019314" lon="-107.416976" />
+    <trkpt lat="40.018282" lon="-107.417650" />
+    <trkpt lat="40.017250" lon="-107.418998" />
+    <trkpt lat="40.016218" lon="-107.418998" />
+    <trkpt lat="40.015186" lon="-107.420345" />
+    <trkpt lat="40.014154" lon="-107.421693" />
+    <trkpt lat="40.013122" lon="-107.421693" />
+    <trkpt lat="40.012090" lon="-107.421693" />
+    <trkpt lat="40.011058" lon="-107.421693" />
+    <trkpt lat="40.010026" lon="-107.421693" />
+    <trkpt lat="40.008994" lon="-107.422366" />
+    <trkpt lat="40.007961" lon="-107.423714" />
+    <trkpt lat="40.006929" lon="-107.425061" />
+    <trkpt lat="40.006929" lon="-107.426409" />
   </trkseg></trk>
-  <trk><name>Modeled concealed route for T09 · Bailey Lake</name><trkseg>
-    <trkpt lat="39.967181" lon="-107.538923" />
-    <trkpt lat="39.966665" lon="-107.536902" />
-    <trkpt lat="39.966665" lon="-107.534880" />
+  <trk><name>H03B · West Marvine Creek → Marvine Campground</name><trkseg>
+    <trkpt lat="40.023441" lon="-107.435841" />
+    <trkpt lat="40.022409" lon="-107.434494" />
+    <trkpt lat="40.021377" lon="-107.433146" />
+    <trkpt lat="40.020862" lon="-107.431799" />
+    <trkpt lat="40.020346" lon="-107.430451" />
+    <trkpt lat="40.019314" lon="-107.429104" />
+    <trkpt lat="40.018282" lon="-107.427756" />
+    <trkpt lat="40.017250" lon="-107.426409" />
+    <trkpt lat="40.016218" lon="-107.426409" />
+    <trkpt lat="40.015186" lon="-107.426409" />
+    <trkpt lat="40.014154" lon="-107.426409" />
+    <trkpt lat="40.013122" lon="-107.426409" />
+    <trkpt lat="40.012090" lon="-107.426409" />
+    <trkpt lat="40.011058" lon="-107.426409" />
+    <trkpt lat="40.010026" lon="-107.426409" />
+    <trkpt lat="40.008994" lon="-107.426409" />
+    <trkpt lat="40.007961" lon="-107.426409" />
+    <trkpt lat="40.006929" lon="-107.426409" />
+  </trkseg></trk>
+  <trk><name>H03C · Slide Lake → Marvine Campground</name><trkseg>
+    <trkpt lat="39.979573" lon="-107.414282" />
+    <trkpt lat="39.980089" lon="-107.413608" />
+    <trkpt lat="39.981121" lon="-107.412260" />
+    <trkpt lat="39.982154" lon="-107.411587" />
+    <trkpt lat="39.983186" lon="-107.411587" />
+    <trkpt lat="39.984219" lon="-107.411587" />
+    <trkpt lat="39.985251" lon="-107.411587" />
+    <trkpt lat="39.986284" lon="-107.410913" />
+    <trkpt lat="39.987316" lon="-107.410913" />
+    <trkpt lat="39.988349" lon="-107.410913" />
+    <trkpt lat="39.989381" lon="-107.411587" />
+    <trkpt lat="39.990413" lon="-107.411587" />
+    <trkpt lat="39.991446" lon="-107.411587" />
+    <trkpt lat="39.992478" lon="-107.411587" />
+    <trkpt lat="39.993510" lon="-107.412934" />
+    <trkpt lat="39.994543" lon="-107.414282" />
+    <trkpt lat="39.995575" lon="-107.415629" />
+    <trkpt lat="39.996607" lon="-107.416303" />
+    <trkpt lat="39.997640" lon="-107.417650" />
+    <trkpt lat="39.998672" lon="-107.418998" />
+    <trkpt lat="39.999704" lon="-107.420345" />
+    <trkpt lat="40.000736" lon="-107.421693" />
+    <trkpt lat="40.001769" lon="-107.423040" />
+    <trkpt lat="40.002801" lon="-107.423714" />
+    <trkpt lat="40.003833" lon="-107.424388" />
+    <trkpt lat="40.004865" lon="-107.425735" />
+    <trkpt lat="40.005897" lon="-107.426409" />
+    <trkpt lat="40.006929" lon="-107.426409" />
+  </trkseg></trk>
+  <trk><name>H03D · Muskrat Lakes → Marvine Campground</name><trkseg>
+    <trkpt lat="40.007445" lon="-107.404849" />
+    <trkpt lat="40.007445" lon="-107.406197" />
+    <trkpt lat="40.007445" lon="-107.407544" />
+    <trkpt lat="40.007445" lon="-107.408892" />
+    <trkpt lat="40.006929" lon="-107.410239" />
+    <trkpt lat="40.006929" lon="-107.411587" />
+    <trkpt lat="40.006929" lon="-107.412934" />
+    <trkpt lat="40.006929" lon="-107.414282" />
+    <trkpt lat="40.006929" lon="-107.415629" />
+    <trkpt lat="40.006929" lon="-107.416976" />
+    <trkpt lat="40.007445" lon="-107.418324" />
+    <trkpt lat="40.007445" lon="-107.419671" />
+    <trkpt lat="40.007445" lon="-107.421019" />
+    <trkpt lat="40.007445" lon="-107.422366" />
+    <trkpt lat="40.007445" lon="-107.423714" />
+    <trkpt lat="40.006929" lon="-107.425061" />
+    <trkpt lat="40.006929" lon="-107.426409" />
+  </trkseg></trk>
+  <trk><name>H03E · Johnson Lake → Marvine Campground</name><trkseg>
+    <trkpt lat="40.020862" lon="-107.401481" />
+    <trkpt lat="40.020862" lon="-107.402154" />
+    <trkpt lat="40.019830" lon="-107.403502" />
+    <trkpt lat="40.018798" lon="-107.404849" />
+    <trkpt lat="40.017766" lon="-107.406197" />
+    <trkpt lat="40.016734" lon="-107.407544" />
+    <trkpt lat="40.015702" lon="-107.408892" />
+    <trkpt lat="40.014670" lon="-107.410239" />
+    <trkpt lat="40.013638" lon="-107.411587" />
+    <trkpt lat="40.012606" lon="-107.412934" />
+    <trkpt lat="40.011574" lon="-107.414282" />
+    <trkpt lat="40.010542" lon="-107.415629" />
+    <trkpt lat="40.009510" lon="-107.416976" />
+    <trkpt lat="40.008994" lon="-107.418324" />
+    <trkpt lat="40.008994" lon="-107.419671" />
+    <trkpt lat="40.008994" lon="-107.421019" />
+    <trkpt lat="40.007961" lon="-107.422366" />
+    <trkpt lat="40.007445" lon="-107.423714" />
+    <trkpt lat="40.006929" lon="-107.425061" />
+    <trkpt lat="40.006929" lon="-107.426409" />
+  </trkseg></trk>
+  <trk><name>H04A · Coal Creek → Bear Lake Campground</name><trkseg>
+    <trkpt lat="40.058000" lon="-107.041032" />
+    <trkpt lat="40.058516" lon="-107.042379" />
+    <trkpt lat="40.059547" lon="-107.043053" />
+    <trkpt lat="40.060063" lon="-107.044400" />
+    <trkpt lat="40.060578" lon="-107.045748" />
+    <trkpt lat="40.060578" lon="-107.047095" />
+    <trkpt lat="40.060578" lon="-107.048443" />
+    <trkpt lat="40.060063" lon="-107.049790" />
+    <trkpt lat="40.059031" lon="-107.051138" />
+    <trkpt lat="40.058516" lon="-107.052485" />
+    <trkpt lat="40.058000" lon="-107.053833" />
+    <trkpt lat="40.056969" lon="-107.055180" />
+    <trkpt lat="40.056453" lon="-107.056527" />
+    <trkpt lat="40.055422" lon="-107.057875" />
+    <trkpt lat="40.054390" lon="-107.059222" />
+    <trkpt lat="40.053359" lon="-107.060570" />
+    <trkpt lat="40.052843" lon="-107.061917" />
+    <trkpt lat="40.052843" lon="-107.063265" />
+    <trkpt lat="40.052843" lon="-107.064612" />
+    <trkpt lat="40.052327" lon="-107.065960" />
+    <trkpt lat="40.052327" lon="-107.067307" />
+    <trkpt lat="40.051296" lon="-107.068655" />
+    <trkpt lat="40.050265" lon="-107.070002" />
+    <trkpt lat="40.049233" lon="-107.070676" />
+    <trkpt lat="40.048202" lon="-107.070002" />
+    <trkpt lat="40.047170" lon="-107.070002" />
+    <trkpt lat="40.046139" lon="-107.070002" />
+  </trkseg></trk>
+  <trk><name>H04B · Smith Creek → Bear Lake Campground</name><trkseg>
+    <trkpt lat="40.040465" lon="-107.100994" />
+    <trkpt lat="40.040465" lon="-107.100320" />
+    <trkpt lat="40.040981" lon="-107.098973" />
+    <trkpt lat="40.041497" lon="-107.097625" />
+    <trkpt lat="40.041497" lon="-107.096278" />
+    <trkpt lat="40.041497" lon="-107.094930" />
+    <trkpt lat="40.041497" lon="-107.093583" />
+    <trkpt lat="40.042012" lon="-107.092236" />
+    <trkpt lat="40.042012" lon="-107.090888" />
+    <trkpt lat="40.042012" lon="-107.089541" />
+    <trkpt lat="40.041497" lon="-107.088193" />
+    <trkpt lat="40.040981" lon="-107.086846" />
+    <trkpt lat="40.040981" lon="-107.085498" />
+    <trkpt lat="40.040981" lon="-107.084151" />
+    <trkpt lat="40.040465" lon="-107.082803" />
+    <trkpt lat="40.040465" lon="-107.081456" />
+    <trkpt lat="40.040465" lon="-107.080108" />
+    <trkpt lat="40.040981" lon="-107.078761" />
+    <trkpt lat="40.041497" lon="-107.077413" />
+    <trkpt lat="40.041497" lon="-107.076066" />
+    <trkpt lat="40.041497" lon="-107.074718" />
+    <trkpt lat="40.042012" lon="-107.073371" />
+    <trkpt lat="40.043044" lon="-107.072023" />
+    <trkpt lat="40.044076" lon="-107.070676" />
+    <trkpt lat="40.045107" lon="-107.070002" />
+    <trkpt lat="40.046139" lon="-107.070002" />
+  </trkseg></trk>
+  <trk><name>H04C · East Coal Creek → Bear Lake Campground</name><trkseg>
+    <trkpt lat="40.067797" lon="-107.051138" />
+    <trkpt lat="40.066766" lon="-107.051811" />
+    <trkpt lat="40.065735" lon="-107.052485" />
+    <trkpt lat="40.064704" lon="-107.053833" />
+    <trkpt lat="40.063672" lon="-107.053833" />
+    <trkpt lat="40.062641" lon="-107.054506" />
+    <trkpt lat="40.061610" lon="-107.055854" />
+    <trkpt lat="40.060578" lon="-107.057201" />
+    <trkpt lat="40.059547" lon="-107.058549" />
+    <trkpt lat="40.058516" lon="-107.059896" />
+    <trkpt lat="40.057484" lon="-107.061244" />
+    <trkpt lat="40.056453" lon="-107.062591" />
+    <trkpt lat="40.055422" lon="-107.063939" />
+    <trkpt lat="40.054390" lon="-107.065286" />
+    <trkpt lat="40.053359" lon="-107.065960" />
+    <trkpt lat="40.052327" lon="-107.067307" />
+    <trkpt lat="40.051296" lon="-107.068655" />
+    <trkpt lat="40.050265" lon="-107.070002" />
+    <trkpt lat="40.049233" lon="-107.070676" />
+    <trkpt lat="40.048202" lon="-107.070002" />
+    <trkpt lat="40.047170" lon="-107.070002" />
+    <trkpt lat="40.046139" lon="-107.070002" />
+  </trkseg></trk>
+  <trk><name>H04D · Mud Mandall Lake → Bear Lake Campground</name><trkseg>
+    <trkpt lat="40.053359" lon="-107.099647" />
+    <trkpt lat="40.053875" lon="-107.098299" />
+    <trkpt lat="40.053875" lon="-107.096952" />
+    <trkpt lat="40.053875" lon="-107.095604" />
+    <trkpt lat="40.053875" lon="-107.094257" />
+    <trkpt lat="40.053875" lon="-107.092909" />
+    <trkpt lat="40.053875" lon="-107.091562" />
+    <trkpt lat="40.053875" lon="-107.090214" />
+    <trkpt lat="40.053875" lon="-107.088867" />
+    <trkpt lat="40.053875" lon="-107.087519" />
+    <trkpt lat="40.053875" lon="-107.086172" />
+    <trkpt lat="40.053875" lon="-107.084824" />
+    <trkpt lat="40.053875" lon="-107.083477" />
+    <trkpt lat="40.053875" lon="-107.082129" />
+    <trkpt lat="40.053875" lon="-107.080782" />
+    <trkpt lat="40.053875" lon="-107.079435" />
+    <trkpt lat="40.053359" lon="-107.078087" />
+    <trkpt lat="40.052843" lon="-107.076740" />
+    <trkpt lat="40.052843" lon="-107.075392" />
+    <trkpt lat="40.052327" lon="-107.074045" />
+    <trkpt lat="40.051296" lon="-107.072697" />
+    <trkpt lat="40.050265" lon="-107.072023" />
+    <trkpt lat="40.049233" lon="-107.070676" />
+    <trkpt lat="40.048202" lon="-107.070002" />
+    <trkpt lat="40.047170" lon="-107.070002" />
+    <trkpt lat="40.046139" lon="-107.070002" />
+  </trkseg></trk>
+  <trk><name>H04E · East Coal Creek → Bear Lake Campground</name><trkseg>
+    <trkpt lat="40.072437" lon="-107.072023" />
+    <trkpt lat="40.071922" lon="-107.072697" />
+    <trkpt lat="40.070891" lon="-107.072697" />
+    <trkpt lat="40.069860" lon="-107.072697" />
+    <trkpt lat="40.068828" lon="-107.072697" />
+    <trkpt lat="40.067797" lon="-107.072697" />
+    <trkpt lat="40.066766" lon="-107.072697" />
+    <trkpt lat="40.065735" lon="-107.072697" />
+    <trkpt lat="40.064704" lon="-107.072697" />
+    <trkpt lat="40.063672" lon="-107.072697" />
+    <trkpt lat="40.062641" lon="-107.072697" />
+    <trkpt lat="40.061610" lon="-107.072697" />
+    <trkpt lat="40.060578" lon="-107.072697" />
+    <trkpt lat="40.059547" lon="-107.072697" />
+    <trkpt lat="40.058516" lon="-107.072697" />
+    <trkpt lat="40.057484" lon="-107.072023" />
+    <trkpt lat="40.056453" lon="-107.072023" />
+    <trkpt lat="40.055422" lon="-107.072023" />
+    <trkpt lat="40.054390" lon="-107.072023" />
+    <trkpt lat="40.053359" lon="-107.072023" />
+    <trkpt lat="40.052327" lon="-107.072023" />
+    <trkpt lat="40.051296" lon="-107.072023" />
+    <trkpt lat="40.050265" lon="-107.071350" />
+    <trkpt lat="40.049233" lon="-107.070676" />
+    <trkpt lat="40.048202" lon="-107.070002" />
+    <trkpt lat="40.047170" lon="-107.070002" />
+    <trkpt lat="40.046139" lon="-107.070002" />
+  </trkseg></trk>
+  <trk><name>H05A · Maggies Nipple → Bear River Campground</name><trkseg>
+    <trkpt lat="40.089449" lon="-107.012061" />
+    <trkpt lat="40.088418" lon="-107.011387" />
+    <trkpt lat="40.087387" lon="-107.011387" />
+    <trkpt lat="40.086356" lon="-107.012061" />
+    <trkpt lat="40.085325" lon="-107.013408" />
+    <trkpt lat="40.084294" lon="-107.013408" />
+    <trkpt lat="40.083263" lon="-107.014756" />
+    <trkpt lat="40.082232" lon="-107.014756" />
+    <trkpt lat="40.081201" lon="-107.016103" />
+    <trkpt lat="40.080170" lon="-107.017451" />
+    <trkpt lat="40.079139" lon="-107.018798" />
+    <trkpt lat="40.078108" lon="-107.020146" />
+    <trkpt lat="40.077077" lon="-107.020819" />
+    <trkpt lat="40.076046" lon="-107.021493" />
+    <trkpt lat="40.075015" lon="-107.021493" />
+    <trkpt lat="40.073984" lon="-107.022167" />
+    <trkpt lat="40.072953" lon="-107.022841" />
+    <trkpt lat="40.071922" lon="-107.023514" />
+    <trkpt lat="40.070891" lon="-107.024862" />
+    <trkpt lat="40.069860" lon="-107.024862" />
+    <trkpt lat="40.068828" lon="-107.024862" />
+    <trkpt lat="40.067797" lon="-107.024862" />
+    <trkpt lat="40.066766" lon="-107.024862" />
+    <trkpt lat="40.065735" lon="-107.024188" />
+    <trkpt lat="40.064704" lon="-107.024188" />
+    <trkpt lat="40.063672" lon="-107.023514" />
+    <trkpt lat="40.062641" lon="-107.022841" />
+    <trkpt lat="40.061610" lon="-107.022167" />
+    <trkpt lat="40.060578" lon="-107.022167" />
+    <trkpt lat="40.059547" lon="-107.020819" />
+    <trkpt lat="40.058516" lon="-107.019472" />
+  </trkseg></trk>
+  <trk><name>H05B · Gardner Creek → Bear River Campground</name><trkseg>
+    <trkpt lat="40.068828" lon="-106.996565" />
+    <trkpt lat="40.068828" lon="-106.997239" />
+    <trkpt lat="40.067797" lon="-106.998586" />
+    <trkpt lat="40.066766" lon="-106.999934" />
+    <trkpt lat="40.066250" lon="-107.001281" />
+    <trkpt lat="40.066250" lon="-107.002629" />
+    <trkpt lat="40.066250" lon="-107.003976" />
+    <trkpt lat="40.066250" lon="-107.005324" />
+    <trkpt lat="40.065735" lon="-107.006671" />
+    <trkpt lat="40.065735" lon="-107.008018" />
+    <trkpt lat="40.065735" lon="-107.009366" />
+    <trkpt lat="40.064704" lon="-107.010713" />
+    <trkpt lat="40.064188" lon="-107.012061" />
+    <trkpt lat="40.063157" lon="-107.013408" />
+    <trkpt lat="40.062641" lon="-107.014756" />
+    <trkpt lat="40.062125" lon="-107.016103" />
+    <trkpt lat="40.061610" lon="-107.017451" />
+    <trkpt lat="40.060578" lon="-107.018798" />
+    <trkpt lat="40.059547" lon="-107.019472" />
+    <trkpt lat="40.058516" lon="-107.019472" />
+  </trkseg></trk>
+  <trk><name>H05C · Coal Creek → Bear River Campground</name><trkseg>
+    <trkpt lat="40.058000" lon="-107.041032" />
+    <trkpt lat="40.058000" lon="-107.039684" />
+    <trkpt lat="40.058000" lon="-107.038337" />
+    <trkpt lat="40.058000" lon="-107.036989" />
+    <trkpt lat="40.058000" lon="-107.035642" />
+    <trkpt lat="40.058000" lon="-107.034294" />
+    <trkpt lat="40.058000" lon="-107.032947" />
+    <trkpt lat="40.058000" lon="-107.031599" />
+    <trkpt lat="40.058000" lon="-107.030252" />
+    <trkpt lat="40.058000" lon="-107.028904" />
+    <trkpt lat="40.059031" lon="-107.027557" />
+    <trkpt lat="40.059547" lon="-107.026209" />
+    <trkpt lat="40.060578" lon="-107.024862" />
+    <trkpt lat="40.060578" lon="-107.023514" />
+    <trkpt lat="40.060578" lon="-107.022167" />
+    <trkpt lat="40.059547" lon="-107.020819" />
+    <trkpt lat="40.058516" lon="-107.019472" />
+  </trkseg></trk>
+  <trk><name>H05D · Maggies Nipple → Bear River Campground</name><trkseg>
+    <trkpt lat="40.081717" lon="-107.049116" />
+    <trkpt lat="40.081201" lon="-107.049116" />
+    <trkpt lat="40.080170" lon="-107.048443" />
+    <trkpt lat="40.079139" lon="-107.047095" />
+    <trkpt lat="40.078108" lon="-107.045748" />
+    <trkpt lat="40.077077" lon="-107.044400" />
+    <trkpt lat="40.076046" lon="-107.043053" />
+    <trkpt lat="40.075531" lon="-107.041705" />
+    <trkpt lat="40.074500" lon="-107.040358" />
+    <trkpt lat="40.073469" lon="-107.039010" />
+    <trkpt lat="40.072437" lon="-107.037663" />
+    <trkpt lat="40.071406" lon="-107.036315" />
+    <trkpt lat="40.070375" lon="-107.034968" />
+    <trkpt lat="40.069344" lon="-107.034294" />
+    <trkpt lat="40.068313" lon="-107.032947" />
+    <trkpt lat="40.067282" lon="-107.031599" />
+    <trkpt lat="40.066250" lon="-107.030252" />
+    <trkpt lat="40.065219" lon="-107.028904" />
+    <trkpt lat="40.064188" lon="-107.027557" />
+    <trkpt lat="40.063157" lon="-107.026209" />
+    <trkpt lat="40.062125" lon="-107.024862" />
+    <trkpt lat="40.061094" lon="-107.023514" />
+    <trkpt lat="40.060578" lon="-107.022167" />
+    <trkpt lat="40.059547" lon="-107.020819" />
+    <trkpt lat="40.058516" lon="-107.019472" />
+  </trkseg></trk>
+  <trk><name>H05E · Rams Horn Lake → Bear River Campground</name><trkseg>
+    <trkpt lat="40.031696" lon="-107.047095" />
+    <trkpt lat="40.032727" lon="-107.047095" />
+    <trkpt lat="40.033759" lon="-107.046421" />
+    <trkpt lat="40.034791" lon="-107.045074" />
+    <trkpt lat="40.035823" lon="-107.043726" />
+    <trkpt lat="40.036854" lon="-107.042379" />
+    <trkpt lat="40.037886" lon="-107.041032" />
+    <trkpt lat="40.038402" lon="-107.039684" />
+    <trkpt lat="40.039433" lon="-107.038337" />
+    <trkpt lat="40.040465" lon="-107.036989" />
+    <trkpt lat="40.041497" lon="-107.035642" />
+    <trkpt lat="40.042528" lon="-107.034294" />
+    <trkpt lat="40.043560" lon="-107.032947" />
+    <trkpt lat="40.044591" lon="-107.032947" />
+    <trkpt lat="40.045623" lon="-107.032947" />
+    <trkpt lat="40.046654" lon="-107.032947" />
+    <trkpt lat="40.047686" lon="-107.032947" />
+    <trkpt lat="40.048717" lon="-107.032947" />
+    <trkpt lat="40.049749" lon="-107.032947" />
+    <trkpt lat="40.050780" lon="-107.032947" />
+    <trkpt lat="40.051812" lon="-107.032947" />
+    <trkpt lat="40.052843" lon="-107.032947" />
+    <trkpt lat="40.053875" lon="-107.032947" />
+    <trkpt lat="40.054906" lon="-107.032947" />
+    <trkpt lat="40.055937" lon="-107.031599" />
+    <trkpt lat="40.056969" lon="-107.031599" />
+    <trkpt lat="40.057484" lon="-107.030252" />
+    <trkpt lat="40.058000" lon="-107.028904" />
+    <trkpt lat="40.059031" lon="-107.027557" />
+    <trkpt lat="40.059547" lon="-107.026209" />
+    <trkpt lat="40.060578" lon="-107.024862" />
+    <trkpt lat="40.060578" lon="-107.023514" />
+    <trkpt lat="40.060578" lon="-107.022167" />
+    <trkpt lat="40.059547" lon="-107.020819" />
+    <trkpt lat="40.058516" lon="-107.019472" />
+  </trkseg></trk>
+  <trk><name>H06A · Hack Lake → Sweetwater Lake Campground</name><trkseg>
+    <trkpt lat="39.829691" lon="-107.142092" />
+    <trkpt lat="39.829174" lon="-107.142092" />
+    <trkpt lat="39.828139" lon="-107.143439" />
+    <trkpt lat="39.827104" lon="-107.144787" />
+    <trkpt lat="39.826070" lon="-107.146134" />
+    <trkpt lat="39.825035" lon="-107.146134" />
+    <trkpt lat="39.824000" lon="-107.146808" />
+    <trkpt lat="39.822965" lon="-107.146808" />
+    <trkpt lat="39.821930" lon="-107.147482" />
+    <trkpt lat="39.820895" lon="-107.148156" />
+    <trkpt lat="39.819860" lon="-107.148156" />
+    <trkpt lat="39.818825" lon="-107.147482" />
+    <trkpt lat="39.817790" lon="-107.147482" />
+    <trkpt lat="39.816755" lon="-107.147482" />
+    <trkpt lat="39.815720" lon="-107.148829" />
+    <trkpt lat="39.814685" lon="-107.149503" />
+    <trkpt lat="39.813650" lon="-107.149503" />
+    <trkpt lat="39.812615" lon="-107.150177" />
+    <trkpt lat="39.811580" lon="-107.150177" />
+    <trkpt lat="39.810545" lon="-107.150851" />
+    <trkpt lat="39.809510" lon="-107.151524" />
+    <trkpt lat="39.808475" lon="-107.152198" />
+    <trkpt lat="39.807440" lon="-107.152198" />
+    <trkpt lat="39.806405" lon="-107.152198" />
+    <trkpt lat="39.805370" lon="-107.152872" />
+    <trkpt lat="39.804334" lon="-107.152872" />
+    <trkpt lat="39.803299" lon="-107.153546" />
+    <trkpt lat="39.802264" lon="-107.153546" />
+    <trkpt lat="39.801229" lon="-107.153546" />
+    <trkpt lat="39.800194" lon="-107.154893" />
+    <trkpt lat="39.799158" lon="-107.156240" />
+    <trkpt lat="39.798641" lon="-107.157588" />
+    <trkpt lat="39.797605" lon="-107.158935" />
+    <trkpt lat="39.797088" lon="-107.160283" />
+  </trkseg></trk>
+  <trk><name>H06B · Turret Creek → Sweetwater Lake Campground</name><trkseg>
+    <trkpt lat="39.820895" lon="-107.181842" />
+    <trkpt lat="39.819860" lon="-107.181169" />
+    <trkpt lat="39.818825" lon="-107.180495" />
+    <trkpt lat="39.817790" lon="-107.179821" />
+    <trkpt lat="39.816755" lon="-107.179821" />
+    <trkpt lat="39.815720" lon="-107.179148" />
+    <trkpt lat="39.814685" lon="-107.178474" />
+    <trkpt lat="39.813650" lon="-107.177126" />
+    <trkpt lat="39.812615" lon="-107.175779" />
+    <trkpt lat="39.811580" lon="-107.174431" />
+    <trkpt lat="39.810545" lon="-107.173084" />
+    <trkpt lat="39.810028" lon="-107.171736" />
+    <trkpt lat="39.808992" lon="-107.170389" />
+    <trkpt lat="39.808475" lon="-107.169041" />
+    <trkpt lat="39.807440" lon="-107.167694" />
+    <trkpt lat="39.806405" lon="-107.166347" />
+    <trkpt lat="39.805370" lon="-107.165673" />
+    <trkpt lat="39.804334" lon="-107.164999" />
+    <trkpt lat="39.803299" lon="-107.163652" />
+    <trkpt lat="39.802264" lon="-107.162304" />
+    <trkpt lat="39.801229" lon="-107.160957" />
+    <trkpt lat="39.800194" lon="-107.160283" />
+    <trkpt lat="39.799158" lon="-107.160283" />
+    <trkpt lat="39.798123" lon="-107.160283" />
+    <trkpt lat="39.797088" lon="-107.160283" />
+  </trkseg></trk>
+  <trk><name>H06C · Johnny Meyers Lake → Sweetwater Lake Campground</name><trkseg>
+    <trkpt lat="39.823482" lon="-107.164999" />
+    <trkpt lat="39.822965" lon="-107.164999" />
+    <trkpt lat="39.821930" lon="-107.165673" />
+    <trkpt lat="39.820895" lon="-107.165673" />
+    <trkpt lat="39.819860" lon="-107.165673" />
+    <trkpt lat="39.818825" lon="-107.165673" />
+    <trkpt lat="39.817790" lon="-107.165673" />
+    <trkpt lat="39.816755" lon="-107.165673" />
+    <trkpt lat="39.815720" lon="-107.165673" />
+    <trkpt lat="39.814685" lon="-107.165673" />
+    <trkpt lat="39.813650" lon="-107.165673" />
+    <trkpt lat="39.812615" lon="-107.165673" />
+    <trkpt lat="39.811580" lon="-107.165673" />
+    <trkpt lat="39.810545" lon="-107.166347" />
+    <trkpt lat="39.809510" lon="-107.167020" />
+    <trkpt lat="39.808475" lon="-107.167020" />
+    <trkpt lat="39.807440" lon="-107.167020" />
+    <trkpt lat="39.806405" lon="-107.166347" />
+    <trkpt lat="39.805370" lon="-107.165673" />
+    <trkpt lat="39.804334" lon="-107.164999" />
+    <trkpt lat="39.803299" lon="-107.163652" />
+    <trkpt lat="39.802264" lon="-107.162304" />
+    <trkpt lat="39.801229" lon="-107.160957" />
+    <trkpt lat="39.800194" lon="-107.160283" />
+    <trkpt lat="39.799158" lon="-107.160283" />
+    <trkpt lat="39.798123" lon="-107.160283" />
+    <trkpt lat="39.797088" lon="-107.160283" />
+  </trkseg></trk>
+  <trk><name>H06D · Darnell Creek → Sweetwater Lake Campground</name><trkseg>
+    <trkpt lat="39.785181" lon="-107.177800" />
+    <trkpt lat="39.785181" lon="-107.177126" />
+    <trkpt lat="39.786216" lon="-107.175779" />
+    <trkpt lat="39.786216" lon="-107.174431" />
+    <trkpt lat="39.786216" lon="-107.173084" />
+    <trkpt lat="39.786216" lon="-107.171736" />
+    <trkpt lat="39.786216" lon="-107.170389" />
+    <trkpt lat="39.787252" lon="-107.169041" />
+    <trkpt lat="39.788287" lon="-107.167694" />
+    <trkpt lat="39.789323" lon="-107.167020" />
+    <trkpt lat="39.790358" lon="-107.165673" />
+    <trkpt lat="39.791393" lon="-107.164325" />
+    <trkpt lat="39.791911" lon="-107.162978" />
+    <trkpt lat="39.792946" lon="-107.161630" />
+    <trkpt lat="39.793982" lon="-107.160957" />
+    <trkpt lat="39.795017" lon="-107.160283" />
+    <trkpt lat="39.796052" lon="-107.160283" />
+    <trkpt lat="39.797088" lon="-107.160283" />
+  </trkseg></trk>
+  <trk><name>H06E · Cross Creek → Sweetwater Lake Campground</name><trkseg>
+    <trkpt lat="39.815203" lon="-107.204750" />
+    <trkpt lat="39.814168" lon="-107.203402" />
+    <trkpt lat="39.813650" lon="-107.202055" />
+    <trkpt lat="39.812615" lon="-107.200707" />
+    <trkpt lat="39.812098" lon="-107.199360" />
+    <trkpt lat="39.812098" lon="-107.198012" />
+    <trkpt lat="39.811580" lon="-107.196665" />
+    <trkpt lat="39.811063" lon="-107.195317" />
+    <trkpt lat="39.810545" lon="-107.193970" />
+    <trkpt lat="39.810028" lon="-107.192622" />
+    <trkpt lat="39.809510" lon="-107.191275" />
+    <trkpt lat="39.809510" lon="-107.189927" />
+    <trkpt lat="39.809510" lon="-107.188580" />
+    <trkpt lat="39.809510" lon="-107.187232" />
+    <trkpt lat="39.809510" lon="-107.185885" />
+    <trkpt lat="39.809510" lon="-107.184537" />
+    <trkpt lat="39.808992" lon="-107.183190" />
+    <trkpt lat="39.807957" lon="-107.181842" />
+    <trkpt lat="39.807440" lon="-107.180495" />
+    <trkpt lat="39.807440" lon="-107.179148" />
+    <trkpt lat="39.807440" lon="-107.177800" />
+    <trkpt lat="39.807440" lon="-107.176453" />
+    <trkpt lat="39.807440" lon="-107.175105" />
+    <trkpt lat="39.806922" lon="-107.173758" />
+    <trkpt lat="39.805887" lon="-107.172410" />
+    <trkpt lat="39.805370" lon="-107.171063" />
+    <trkpt lat="39.804334" lon="-107.169715" />
+    <trkpt lat="39.803817" lon="-107.168368" />
+    <trkpt lat="39.803299" lon="-107.167020" />
+    <trkpt lat="39.802264" lon="-107.165673" />
+    <trkpt lat="39.801229" lon="-107.164325" />
+    <trkpt lat="39.800194" lon="-107.162978" />
+    <trkpt lat="39.799158" lon="-107.161630" />
+    <trkpt lat="39.798123" lon="-107.160283" />
+    <trkpt lat="39.797088" lon="-107.160283" />
+  </trkseg></trk>
+  <trk><name>H07A · Little Oak Creek → Chapman Reservoir Campground</name><trkseg>
+    <trkpt lat="40.203265" lon="-107.105710" />
+    <trkpt lat="40.202236" lon="-107.104363" />
+    <trkpt lat="40.201207" lon="-107.103015" />
+    <trkpt lat="40.200692" lon="-107.101668" />
+    <trkpt lat="40.200177" lon="-107.100320" />
+    <trkpt lat="40.199663" lon="-107.098973" />
+    <trkpt lat="40.198634" lon="-107.097625" />
+    <trkpt lat="40.197604" lon="-107.096278" />
+    <trkpt lat="40.196575" lon="-107.094930" />
+    <trkpt lat="40.195546" lon="-107.093583" />
+    <trkpt lat="40.194517" lon="-107.092909" />
+    <trkpt lat="40.193487" lon="-107.091562" />
+    <trkpt lat="40.192973" lon="-107.090214" />
+    <trkpt lat="40.191943" lon="-107.090214" />
+    <trkpt lat="40.190914" lon="-107.090214" />
+    <trkpt lat="40.189885" lon="-107.089541" />
+    <trkpt lat="40.188855" lon="-107.088193" />
+    <trkpt lat="40.187826" lon="-107.086846" />
+    <trkpt lat="40.186797" lon="-107.086172" />
+  </trkseg></trk>
+  <trk><name>H07B · Chapman Reservoir → Chapman Reservoir Campground</name><trkseg>
+    <trkpt lat="40.171869" lon="-107.106384" />
+    <trkpt lat="40.172898" lon="-107.105710" />
+    <trkpt lat="40.173928" lon="-107.105710" />
+    <trkpt lat="40.174957" lon="-107.105037" />
+    <trkpt lat="40.175987" lon="-107.103689" />
+    <trkpt lat="40.177017" lon="-107.102342" />
+    <trkpt lat="40.178046" lon="-107.100994" />
+    <trkpt lat="40.179076" lon="-107.099647" />
+    <trkpt lat="40.179590" lon="-107.098299" />
+    <trkpt lat="40.180620" lon="-107.096952" />
+    <trkpt lat="40.181649" lon="-107.096278" />
+    <trkpt lat="40.182679" lon="-107.094930" />
+    <trkpt lat="40.183708" lon="-107.093583" />
+    <trkpt lat="40.184738" lon="-107.092909" />
+    <trkpt lat="40.185767" lon="-107.091562" />
+    <trkpt lat="40.186797" lon="-107.090214" />
+    <trkpt lat="40.186797" lon="-107.088867" />
+    <trkpt lat="40.186797" lon="-107.087519" />
+    <trkpt lat="40.186797" lon="-107.086172" />
+  </trkseg></trk>
+  <trk><name>H07C · Last Chance Ditch → Chapman Reservoir Campground</name><trkseg>
+    <trkpt lat="40.219729" lon="-107.099647" />
+    <trkpt lat="40.219215" lon="-107.100320" />
+    <trkpt lat="40.218186" lon="-107.100320" />
+    <trkpt lat="40.217157" lon="-107.100320" />
+    <trkpt lat="40.216128" lon="-107.099647" />
+    <trkpt lat="40.215099" lon="-107.099647" />
+    <trkpt lat="40.214070" lon="-107.099647" />
+    <trkpt lat="40.213041" lon="-107.099647" />
+    <trkpt lat="40.212012" lon="-107.100320" />
+    <trkpt lat="40.210983" lon="-107.099647" />
+    <trkpt lat="40.209954" lon="-107.099647" />
+    <trkpt lat="40.208925" lon="-107.098973" />
+    <trkpt lat="40.207896" lon="-107.098299" />
+    <trkpt lat="40.206867" lon="-107.098299" />
+    <trkpt lat="40.205838" lon="-107.098299" />
+    <trkpt lat="40.204809" lon="-107.097625" />
+    <trkpt lat="40.203779" lon="-107.097625" />
+    <trkpt lat="40.202750" lon="-107.097625" />
+    <trkpt lat="40.201721" lon="-107.096952" />
+    <trkpt lat="40.200692" lon="-107.096952" />
+    <trkpt lat="40.199663" lon="-107.096952" />
+    <trkpt lat="40.198634" lon="-107.096952" />
+    <trkpt lat="40.197604" lon="-107.096278" />
+    <trkpt lat="40.196575" lon="-107.094930" />
+    <trkpt lat="40.195546" lon="-107.093583" />
+    <trkpt lat="40.194517" lon="-107.092909" />
+    <trkpt lat="40.193487" lon="-107.091562" />
+    <trkpt lat="40.192973" lon="-107.090214" />
+    <trkpt lat="40.191943" lon="-107.090214" />
+    <trkpt lat="40.190914" lon="-107.090214" />
+    <trkpt lat="40.189885" lon="-107.089541" />
+    <trkpt lat="40.188855" lon="-107.088193" />
+    <trkpt lat="40.187826" lon="-107.086846" />
+    <trkpt lat="40.186797" lon="-107.086172" />
+  </trkseg></trk>
+  <trk><name>H07D · Little Oak Creek → Chapman Reservoir Campground</name><trkseg>
+    <trkpt lat="40.189885" lon="-107.114469" />
+    <trkpt lat="40.189885" lon="-107.113121" />
+    <trkpt lat="40.189885" lon="-107.111774" />
+    <trkpt lat="40.189885" lon="-107.110426" />
+    <trkpt lat="40.189885" lon="-107.109079" />
+    <trkpt lat="40.189885" lon="-107.107731" />
+    <trkpt lat="40.189370" lon="-107.106384" />
+    <trkpt lat="40.189370" lon="-107.105037" />
+    <trkpt lat="40.188341" lon="-107.103689" />
+    <trkpt lat="40.188341" lon="-107.102342" />
+    <trkpt lat="40.188341" lon="-107.100994" />
+    <trkpt lat="40.188341" lon="-107.099647" />
+    <trkpt lat="40.188341" lon="-107.098299" />
+    <trkpt lat="40.188341" lon="-107.096952" />
+    <trkpt lat="40.188341" lon="-107.095604" />
+    <trkpt lat="40.187826" lon="-107.094257" />
+    <trkpt lat="40.187826" lon="-107.092909" />
+    <trkpt lat="40.187826" lon="-107.091562" />
+    <trkpt lat="40.187826" lon="-107.090214" />
+    <trkpt lat="40.187311" lon="-107.088867" />
+    <trkpt lat="40.186797" lon="-107.087519" />
+    <trkpt lat="40.186797" lon="-107.086172" />
+  </trkseg></trk>
+  <trk><name>H07E · Simon Reservoir Number 1 → Chapman Reservoir Campground</name><trkseg>
+    <trkpt lat="40.168780" lon="-107.059896" />
+    <trkpt lat="40.169295" lon="-107.059896" />
+    <trkpt lat="40.170324" lon="-107.059896" />
+    <trkpt lat="40.171354" lon="-107.060570" />
+    <trkpt lat="40.172383" lon="-107.061917" />
+    <trkpt lat="40.173413" lon="-107.062591" />
+    <trkpt lat="40.174443" lon="-107.063265" />
+    <trkpt lat="40.175472" lon="-107.063265" />
+    <trkpt lat="40.176502" lon="-107.063265" />
+    <trkpt lat="40.177531" lon="-107.064612" />
+    <trkpt lat="40.178046" lon="-107.065960" />
+    <trkpt lat="40.179076" lon="-107.067307" />
+    <trkpt lat="40.180105" lon="-107.068655" />
+    <trkpt lat="40.181135" lon="-107.070002" />
+    <trkpt lat="40.181649" lon="-107.071350" />
+    <trkpt lat="40.181649" lon="-107.072697" />
+    <trkpt lat="40.182164" lon="-107.074045" />
+    <trkpt lat="40.182679" lon="-107.075392" />
+    <trkpt lat="40.183708" lon="-107.076740" />
+    <trkpt lat="40.183708" lon="-107.078087" />
+    <trkpt lat="40.183708" lon="-107.079435" />
+    <trkpt lat="40.183708" lon="-107.080782" />
+    <trkpt lat="40.184223" lon="-107.082129" />
+    <trkpt lat="40.184738" lon="-107.083477" />
+    <trkpt lat="40.185767" lon="-107.084824" />
+    <trkpt lat="40.186797" lon="-107.086172" />
+  </trkseg></trk>
+  <trk><name>H08A · Elk Draw → Indian Run SWA</name><trkseg>
+    <trkpt lat="40.238247" lon="-107.398112" />
+    <trkpt lat="40.239275" lon="-107.398786" />
+    <trkpt lat="40.240304" lon="-107.399459" />
+    <trkpt lat="40.241332" lon="-107.399459" />
+    <trkpt lat="40.242361" lon="-107.398786" />
+    <trkpt lat="40.243390" lon="-107.398786" />
+    <trkpt lat="40.244418" lon="-107.399459" />
+    <trkpt lat="40.245447" lon="-107.400807" />
+    <trkpt lat="40.246475" lon="-107.402154" />
+    <trkpt lat="40.247504" lon="-107.403502" />
+    <trkpt lat="40.248018" lon="-107.404849" />
+    <trkpt lat="40.249046" lon="-107.406197" />
+    <trkpt lat="40.249046" lon="-107.407544" />
+    <trkpt lat="40.250075" lon="-107.408892" />
+    <trkpt lat="40.250589" lon="-107.410239" />
+    <trkpt lat="40.251103" lon="-107.411587" />
+    <trkpt lat="40.252132" lon="-107.412934" />
+    <trkpt lat="40.252646" lon="-107.414282" />
+    <trkpt lat="40.253160" lon="-107.415629" />
+    <trkpt lat="40.253160" lon="-107.416976" />
+    <trkpt lat="40.254188" lon="-107.418324" />
+    <trkpt lat="40.255217" lon="-107.419671" />
+    <trkpt lat="40.256245" lon="-107.421019" />
+    <trkpt lat="40.257273" lon="-107.422366" />
+    <trkpt lat="40.257788" lon="-107.423714" />
+    <trkpt lat="40.258816" lon="-107.425061" />
+    <trkpt lat="40.259844" lon="-107.426409" />
+    <trkpt lat="40.260872" lon="-107.427756" />
+    <trkpt lat="40.261901" lon="-107.428430" />
+    <trkpt lat="40.262929" lon="-107.429104" />
+    <trkpt lat="40.263957" lon="-107.429777" />
+    <trkpt lat="40.264985" lon="-107.429777" />
+    <trkpt lat="40.266014" lon="-107.430451" />
+    <trkpt lat="40.267042" lon="-107.430451" />
+    <trkpt lat="40.268070" lon="-107.430451" />
+    <trkpt lat="40.269098" lon="-107.431125" />
+    <trkpt lat="40.270126" lon="-107.431799" />
+    <trkpt lat="40.271154" lon="-107.431799" />
+  </trkseg></trk>
+  <trk><name>H08B · Sagebrush Reservoir Number 1 → Indian Run SWA</name><trkseg>
+    <trkpt lat="40.270126" lon="-107.391375" />
+    <trkpt lat="40.270640" lon="-107.392722" />
+    <trkpt lat="40.270640" lon="-107.394069" />
+    <trkpt lat="40.269612" lon="-107.395417" />
+    <trkpt lat="40.268584" lon="-107.396764" />
+    <trkpt lat="40.268584" lon="-107.398112" />
+    <trkpt lat="40.268070" lon="-107.399459" />
+    <trkpt lat="40.268070" lon="-107.400807" />
+    <trkpt lat="40.268070" lon="-107.402154" />
+    <trkpt lat="40.268070" lon="-107.403502" />
+    <trkpt lat="40.268070" lon="-107.404849" />
+    <trkpt lat="40.267556" lon="-107.406197" />
+    <trkpt lat="40.267556" lon="-107.407544" />
+    <trkpt lat="40.267556" lon="-107.408892" />
+    <trkpt lat="40.267556" lon="-107.410239" />
+    <trkpt lat="40.267556" lon="-107.411587" />
+    <trkpt lat="40.267556" lon="-107.412934" />
+    <trkpt lat="40.267556" lon="-107.414282" />
+    <trkpt lat="40.267556" lon="-107.415629" />
+    <trkpt lat="40.267556" lon="-107.416976" />
+    <trkpt lat="40.267556" lon="-107.418324" />
+    <trkpt lat="40.267556" lon="-107.419671" />
+    <trkpt lat="40.267556" lon="-107.421019" />
+    <trkpt lat="40.267556" lon="-107.422366" />
+    <trkpt lat="40.267556" lon="-107.423714" />
+    <trkpt lat="40.267556" lon="-107.425061" />
+    <trkpt lat="40.267556" lon="-107.426409" />
+    <trkpt lat="40.268584" lon="-107.427756" />
+    <trkpt lat="40.269612" lon="-107.429104" />
+    <trkpt lat="40.270640" lon="-107.430451" />
+    <trkpt lat="40.271154" lon="-107.431799" />
+  </trkseg></trk>
+  <trk><name>H08C · Pine Creek → Indian Run SWA</name><trkseg>
+    <trkpt lat="40.225902" lon="-107.431799" />
+    <trkpt lat="40.226931" lon="-107.431799" />
+    <trkpt lat="40.227960" lon="-107.431799" />
+    <trkpt lat="40.228989" lon="-107.431799" />
+    <trkpt lat="40.230017" lon="-107.433146" />
+    <trkpt lat="40.231046" lon="-107.434494" />
+    <trkpt lat="40.232075" lon="-107.434494" />
+    <trkpt lat="40.233103" lon="-107.434494" />
+    <trkpt lat="40.234132" lon="-107.434494" />
+    <trkpt lat="40.235161" lon="-107.434494" />
+    <trkpt lat="40.236189" lon="-107.434494" />
+    <trkpt lat="40.237218" lon="-107.434494" />
+    <trkpt lat="40.238247" lon="-107.435167" />
+    <trkpt lat="40.239275" lon="-107.435167" />
+    <trkpt lat="40.240304" lon="-107.436515" />
+    <trkpt lat="40.241332" lon="-107.436515" />
+    <trkpt lat="40.242361" lon="-107.436515" />
+    <trkpt lat="40.243390" lon="-107.436515" />
+    <trkpt lat="40.244418" lon="-107.436515" />
+    <trkpt lat="40.245447" lon="-107.436515" />
+    <trkpt lat="40.246475" lon="-107.436515" />
+    <trkpt lat="40.247504" lon="-107.437189" />
+    <trkpt lat="40.248532" lon="-107.438536" />
+    <trkpt lat="40.249561" lon="-107.438536" />
+    <trkpt lat="40.250589" lon="-107.438536" />
+    <trkpt lat="40.251617" lon="-107.438536" />
+    <trkpt lat="40.252646" lon="-107.439210" />
+    <trkpt lat="40.253674" lon="-107.439210" />
+    <trkpt lat="40.254703" lon="-107.439884" />
+    <trkpt lat="40.255731" lon="-107.439884" />
+    <trkpt lat="40.256759" lon="-107.439884" />
+    <trkpt lat="40.257788" lon="-107.439210" />
+    <trkpt lat="40.258816" lon="-107.438536" />
+    <trkpt lat="40.259844" lon="-107.438536" />
+    <trkpt lat="40.260872" lon="-107.437189" />
+    <trkpt lat="40.261901" lon="-107.437189" />
+    <trkpt lat="40.262929" lon="-107.436515" />
+    <trkpt lat="40.263957" lon="-107.435841" />
+    <trkpt lat="40.264985" lon="-107.435167" />
+    <trkpt lat="40.266014" lon="-107.435167" />
+    <trkpt lat="40.267042" lon="-107.434494" />
+    <trkpt lat="40.268070" lon="-107.433146" />
+    <trkpt lat="40.269098" lon="-107.432472" />
+    <trkpt lat="40.270126" lon="-107.431799" />
+    <trkpt lat="40.271154" lon="-107.431799" />
   </trkseg></trk>
 </gpx>

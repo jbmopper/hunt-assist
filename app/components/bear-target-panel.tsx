@@ -1,57 +1,40 @@
 'use client';
 
 import { useState } from 'react';
-import type { BearTargetFeature } from '@/lib/bear-targets';
+import type {
+  BearSecurityFeature,
+  BearTargetFeature,
+} from '@/lib/bear-targets';
 
 type BearTargetPanelProps = {
   error: string | null;
-  imageryDate: string | null;
   onSelectTarget: (targetId: string) => void;
+  securityOptions: BearSecurityFeature[];
   selectedTargetId: string | null;
   targets: BearTargetFeature[];
+  warnings: string[];
 };
-
-const METRICS: Array<{
-  key: 'cover' | 'forage' | 'glassing' | 'pinch' | 'pressure' | 'travel';
-  label: string;
-}> = [
-  { key: 'forage', label: 'Forage' },
-  { key: 'cover', label: 'Food → cover' },
-  { key: 'travel', label: 'Travel' },
-  { key: 'pinch', label: 'Pinch' },
-  { key: 'glassing', label: 'Glassing' },
-  { key: 'pressure', label: 'Pressure' },
-];
-
-function formatDate(value: string | null) {
-  if (!value) return 'imagery unavailable';
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${value}T12:00:00Z`));
-}
 
 export default function BearTargetPanel({
   error,
-  imageryDate,
   onSelectTarget,
+  securityOptions,
   selectedTargetId,
   targets,
+  warnings,
 }: BearTargetPanelProps) {
-  const [copiedTarget, setCopiedTarget] = useState<string | null>(null);
+  const [copiedOption, setCopiedOption] = useState<string | null>(null);
 
-  async function copyCoordinates(target: BearTargetFeature) {
-    const { latitude, longitude, targetId } = target.properties;
+  async function copyCoordinates(option: BearSecurityFeature) {
+    const { latitude, longitude, securityId } = option.properties;
     try {
       await navigator.clipboard.writeText(
         `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
       );
-      setCopiedTarget(targetId);
-      window.setTimeout(() => setCopiedTarget(null), 1600);
+      setCopiedOption(securityId);
+      window.setTimeout(() => setCopiedOption(null), 1600);
     } catch {
-      setCopiedTarget(null);
+      setCopiedOption(null);
     }
   }
 
@@ -67,8 +50,8 @@ export default function BearTargetPanel({
   if (!targets.length) {
     return (
       <div className="target-empty">
-        <strong>Loading the BE012O1R shortlist…</strong>
-        <span>Terrain, vegetation, access, and pressure context.</span>
+        <strong>Loading the BE012O1R human-food model…</strong>
+        <span>Conflict context, developed sources, terrain, and security cover.</span>
       </div>
     );
   }
@@ -77,16 +60,16 @@ export default function BearTargetPanel({
     <>
       <section className="target-summary">
         <div>
-          <span className="target-code">BE012O1R · Sep 2–30</span>
-          <strong>{targets.length} desk-scouting leads</strong>
-          <small>Late-summer imagery through {formatDate(imageryDate)}</small>
+          <span className="target-code">BE012O1R · Human-food model</span>
+          <strong>{targets.length} conflict-linked sources</strong>
+          <small>{securityOptions.length} modeled public-land security options</small>
         </div>
         <a className="gpx-button" href="/data/be012o1r-targets.gpx" download>
           GPX ↓
         </a>
         <p>
-          Each lead connects a possible food edge to secure cover through a
-          modeled corridor. Scores compare this hunt area only.
+          Rank the human-food hypothesis first, then inspect two to five routes
+          leading back to security cover. Source markers are context—not setup locations.
         </p>
       </section>
 
@@ -94,6 +77,12 @@ export default function BearTargetPanel({
         {targets.map((target) => {
           const properties = target.properties;
           const selected = properties.targetId === selectedTargetId;
+          const options = securityOptions.filter(
+            (option) => option.properties.targetId === properties.targetId,
+          );
+          const conflictLabel = properties.conflictDistanceMiles === 0
+            ? 'Inside historical conflict area'
+            : `${properties.conflictDistanceMiles.toFixed(1)} mi from conflict area`;
           return (
             <article
               className={selected ? 'target-card target-card-active' : 'target-card'}
@@ -107,43 +96,26 @@ export default function BearTargetPanel({
               >
                 <span className="target-rank">{properties.rank}</span>
                 <span className="target-card-heading">
-                  <strong>{properties.nearbyFeature}</strong>
+                  <strong>{properties.name}</strong>
                   <small>
-                    {properties.sector} · GMU {properties.gmu}
+                    {properties.sourceCategory} · GMU {properties.gmu}
                   </small>
                 </span>
                 <span className="target-score">
                   <strong>{properties.relativeScore}</strong>
-                  <small>/ 100</small>
+                  <small>priority</small>
                 </span>
               </button>
 
               {selected && (
                 <div className="target-card-detail">
                   <div className="target-terrain-line">
-                    <span>{properties.elevationFt.toLocaleString()} ft</span>
-                    <span>{properties.slopeDegrees}° slope</span>
-                    <span>{properties.aspect}° aspect</span>
-                  </div>
-
-                  <div className="target-metrics" aria-label="Model components">
-                    {METRICS.map((metric) => {
-                      const value = properties[metric.key];
-                      return (
-                        <div className="target-metric" key={metric.key}>
-                          <span>
-                            {metric.label} <strong>{value}</strong>
-                          </span>
-                          <i>
-                            <b style={{ width: `${value}%` }} />
-                          </i>
-                        </div>
-                      );
-                    })}
+                    <span>{conflictLabel}</span>
+                    <span>{properties.sourceCount} source record{properties.sourceCount === 1 ? '' : 's'}</span>
                   </div>
 
                   <div className="target-reasons">
-                    <strong>Why it surfaced</strong>
+                    <strong>Why this source surfaced</strong>
                     <ul>
                       {[properties.reason1, properties.reason2, properties.reason3].map(
                         (reason) => <li key={reason}>{reason}</li>,
@@ -151,31 +123,55 @@ export default function BearTargetPanel({
                     </ul>
                   </div>
 
-                  <p className="target-vegetation">{properties.vegetation}</p>
-                  <p className="target-caveat">
-                    Ground-truth first: {properties.caveat1}; {properties.caveat2}.
-                  </p>
+                  <section className="security-options" aria-label="Modeled security routes">
+                    <div className="security-options-heading">
+                      <strong>Security routes</strong>
+                      <span>{options.length} options</span>
+                    </div>
+                    {options.map((option) => {
+                      const detail = option.properties;
+                      return (
+                        <article className="security-option" key={detail.securityId}>
+                          <span className="security-option-label">{detail.optionLabel}</span>
+                          <div className="security-option-copy">
+                            <strong>{detail.name.replace(/^H\d{2}[A-E] · /, '')}</strong>
+                            <small>
+                              {detail.distanceMiles.toFixed(1)} mi direct · {detail.routeMiles.toFixed(1)} mi route · GMU {detail.gmu}
+                            </small>
+                            <span>
+                              Security {detail.securityScore} · cover {detail.cover} · pressure {detail.pressure}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void copyCoordinates(option)}
+                            aria-label={`Copy coordinates for security option ${detail.optionLabel}`}
+                          >
+                            {copiedOption === detail.securityId ? 'Copied' : 'Copy'}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </section>
 
-                  <div className="target-actions">
-                    <button
-                      type="button"
-                      onClick={() => void copyCoordinates(target)}
-                    >
-                      {copiedTarget === properties.targetId
-                        ? 'Copied coordinates'
-                        : `${properties.latitude.toFixed(5)}, ${properties.longitude.toFixed(5)}`}
-                    </button>
-                    <span>Map fit {properties.deskScore}/5</span>
-                  </div>
+                  <p className="target-caveat">
+                    Context only: {properties.caveat1}. {properties.caveat2}.
+                    Route lines may cross private land and require parcel-level verification.
+                  </p>
                 </div>
               )}
             </article>
           );
         })}
         <p className="target-method-note">
-          A high rank is a place to investigate—not a bear probability or a
-          substitute for fresh sign, current food, legal access, wind, and a safe shot.
+          CPW conflict polygons are historical area mapping, not incident counts or
+          current sightings. Require current food or fresh sign before committing time.
         </p>
+        {warnings.length > 0 && (
+          <p className="target-source-warning">
+            Build note: {warnings.join('; ')}. CPW, BLM, and SWA source inventories still loaded.
+          </p>
+        )}
       </div>
     </>
   );

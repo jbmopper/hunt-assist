@@ -36,10 +36,10 @@ npm run check
   CPW fall-concentration habitat plus the current U.S. Drought Monitor, and
   human-food exposure from developed campgrounds/SWA campsites plus CPW
   bear-human conflict areas.
-- Adds a BE012O1R targeting workspace with nine ranked public-land leads,
-  food-to-cover target pockets, modeled concealed-travel corridors,
-  terrain-screened glassing positions, current aerial imagery, explainable
-  component scores, copyable coordinates, and a GPX download.
+- Adds a BE012O1R human-food targeting workspace with eight ranked,
+  conflict-linked campsite/habitation sources, two to five nearby federal-land
+  security areas per source, modeled security-to-source travel routes, copyable
+  option coordinates, aerial imagery, and a GPX download.
 - Clusters developed camping locations and shows their manager, source vintage,
   capacity/use details when available, and an official source link on click.
 - Saves starred hunt codes in browser storage on the current device.
@@ -68,23 +68,31 @@ public sources with:
 uv run \
   --with numpy --with scipy --with rasterio --with shapely \
   --with pyproj --with requests --with scikit-image --with pyogrio \
-  python scripts/build-bear-targets.py --as-of 2026-08-30
+  python scripts/build-bear-targets.py --as-of 2026-09-02 --mode human-food
 ```
 
 The batch step resolves the nine GMUs in BE012O1R and scores a roughly
-57-meter ground grid. The model combines LANDFIRE vegetation type/canopy,
-late-August Sentinel-2 NDVI and its two-year seasonal anomaly, USGS 3DEP
-terrain, CPW fall-concentration habitat, COTREX trail pressure, current
-drought, and federal surface-management geometry. It then finds separated
-local maxima, builds a least-cost route between plausible forage and secure
-cover, and tests possible glassing cells for terrain line of sight.
+57-meter ground grid. The current human-food mode first links developed
+camping and generalized habitation anchors to CPW historical bear-conflict
+polygons. Conflict overlap/proximity supplies 68% of source priority; mapped
+source strength supplies 17%, nearby security quality 10%, and converging
+source records 5%. Because CPW's polygon layer does not contain incident counts
+or usable event dates, overlap is a strong area prior—not a claim of recent or
+frequent conflict.
 
-The score is relative within this hunt area: forage 27%, food-cover interface
-22%, concealed travel 18%, pinch geometry 13%, glassing geometry 10%, and CPW
-fall habitat 10%, with up to a 13% trail-pressure penalty. It is a shortlist for
-ground-truthing, not a bear-presence probability. Use `--skip-satellite` only
-for offline pipeline debugging; final target packages should use the current
-imagery composite.
+For each selected source, LANDFIRE canopy, USGS 3DEP slope/aspect/draw/bench
+terrain, COTREX trail pressure, and BLM surface-management geometry identify
+two to five distinct security-cover options roughly one to 3.2 miles away.
+Every endpoint is on mapped BLM, USFS, or Bureau of Reclamation land. A
+least-cost route favors cover, draws, benches, and moderate slopes while
+penalizing mapped trail proximity. Routes model animal movement and may cross
+private land; every endpoint, route, and source must be field- and parcel-
+verified.
+
+The earlier vegetation-led analysis remains available to the builder with
+`--mode natural-food`; extending it to the same multi-security-route structure
+is the next model iteration. Use `--skip-satellite` only when debugging that
+natural-food pipeline offline.
 
 ## Data sources
 

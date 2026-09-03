@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import BearTargetPanel from './components/bear-target-panel';
 import HuntMap from './components/hunt-map';
 import {
+  getBearSecurityOptions,
   getBearTargets,
   type BearTargetCollection,
 } from '@/lib/bear-targets';
@@ -111,6 +112,10 @@ export default function HuntPlanner() {
 
   const bearTargets = useMemo(
     () => getBearTargets(targetCollection),
+    [targetCollection],
+  );
+  const bearSecurityOptions = useMemo(
+    () => getBearSecurityOptions(targetCollection),
     [targetCollection],
   );
 
@@ -380,7 +385,7 @@ export default function HuntPlanner() {
               }
             />{' '}
             {workspaceMode === 'targets'
-              ? `BE012O1R · imagery ${targetCollection?.metadata.imageryDate ?? 'loading'}`
+              ? `BE012O1R · ${targetCollection ? 'human-food model' : 'loading model'}`
               : feedLabel}
           </span>
           {workspaceMode === 'licenses' && (
@@ -449,7 +454,7 @@ export default function HuntPlanner() {
               onClick={() => chooseWorkspace('targets')}
               aria-pressed={workspaceMode === 'targets'}
             >
-              Bear targets <span>9</span>
+              Bear targets <span>{bearTargets.length || '…'}</span>
             </button>
           </div>
 
@@ -744,10 +749,11 @@ export default function HuntPlanner() {
           ) : (
             <BearTargetPanel
               error={targetError}
-              imageryDate={targetCollection?.metadata.imageryDate ?? null}
               onSelectTarget={handleSelectTarget}
+              securityOptions={bearSecurityOptions}
               selectedTargetId={selectedTargetId}
               targets={bearTargets}
+              warnings={targetCollection?.metadata.warnings ?? []}
             />
           )}
         </section>

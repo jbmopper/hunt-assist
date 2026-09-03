@@ -44,7 +44,9 @@ from rasterio.warp import reproject, transform_bounds
 from scipy.ndimage import (
     binary_dilation,
     distance_transform_edt,
+    find_objects,
     gaussian_filter,
+    label as connected_components,
     maximum_filter,
     uniform_filter,
 )
@@ -72,6 +74,24 @@ CPW_COTREX_TRAILS = (
 CPW_BEAR_FALL = (
     "https://services5.arcgis.com/ttNGmDvKQA7oeDQ3/arcgis/rest/services/"
     "CPWSpeciesData/FeatureServer/19"
+)
+CPW_BEAR_CONFLICT = (
+    "https://services5.arcgis.com/ttNGmDvKQA7oeDQ3/arcgis/rest/services/"
+    "CPWSpeciesData/FeatureServer/20"
+)
+CPW_HUNTING_ATLAS_BASE = (
+    "https://ndismaps.nrel.colostate.edu/arcgis/rest/services/"
+    "HuntingAtlas/HuntingAtlas_Base_Map/MapServer"
+)
+CPW_CAMPGROUNDS = f"{CPW_HUNTING_ATLAS_BASE}/78"
+CPW_SWA_CAMPSITES = f"{CPW_HUNTING_ATLAS_BASE}/69"
+USFS_CAMPGROUNDS = (
+    "https://apps.fs.usda.gov/arcx/rest/services/EDW/"
+    "EDW_RecInfraRecreationSites_02/MapServer/0"
+)
+BLM_CAMPGROUNDS = (
+    "https://gis.blm.gov/arcgis/rest/services/recreation/"
+    "BLM_Natl_Recreation_Sites_Facilities/MapServer/8"
 )
 FEMA_DROUGHT = (
     "https://gis.fema.gov/arcgis/rest/services/Partner/"
@@ -125,6 +145,8 @@ SOURCE_LINKS = {
     "sentinel": "https://registry.opendata.aws/sentinel-2-l2a-cogs/",
     "terrain": "https://www.usgs.gov/3d-elevation-program/about-3dep-products-services",
     "drought": "https://droughtmonitor.unl.edu/CurrentMap.aspx",
+    "campgrounds": "https://ndismaps.nrel.colostate.edu/index.html",
+    "habitation": "https://www.usgs.gov/tools/geographic-names-information-system-gnis",
 }
 
 
@@ -275,10 +297,11 @@ def landfire_scores(
     evt: np.ndarray,
     evc: np.ndarray,
     evt_table: dict[int, dict[str, str]],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     food = np.zeros(evt.shape, dtype=np.float32)
     cover = np.zeros(evt.shape, dtype=np.float32)
     open_food = np.zeros(evt.shape, dtype=bool)
+    developed = np.zeros(evt.shape, dtype=bool)
     labels = np.full(evt.shape, "Unknown vegetation", dtype=object)
 
     tree_cover = np.where((evc >= 110) & (evc <= 199), evc - 100, 0)
@@ -296,6 +319,8 @@ def landfire_scores(
         group = row.get("EVT_GP_N", "")
         searchable = " ".join((name, lifeform, physiognomy, group)).lower()
         labels[mask] = name
+        if any(token in searchable for token in ("developed", "urban", "residential")):
+            developed[mask] = True
 
         food_value = 0.08
         if any(
@@ -345,7 +370,7 @@ def landfire_scores(
         cover[mask] = local_cover
 
     open_food = (food >= 0.46) & (cover <= 0.36)
-    return food, cover, open_food, labels
+    return food, cover, open_food, developed, labels
 
 
 def scene_tile(feature: dict[str, Any]) -> str:
@@ -894,6 +919,553 @@ def nearest_name(
     )
 
 
+def source_text(properties: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = properties.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            return str(value)
+    return None
+
+
+def source_number(properties: dict[str, Any], *keys: str) -> float | None:
+    value = source_text(properties, *keys)
+    if value is None:
+        return None
+    try:
+        return float(value.replace(",", ""))
+    except ValueError:
+        return None
+
+
+def load_trail_mask(
+    session: requests.Session,
+    bbox: tuple[float, float, float, float],
+    transform: rasterio.Affine,
+    shape_: tuple[int, int],
+    forward: Transformer,
+) -> tuple[np.ndarray, list[str]]:
+    try:
+        collection = arcgis_geojson(
+            session,
+            CPW_COTREX_TRAILS,
+            bbox=bbox,
+            out_fields="name,trail_num,type,hiking,motorcycle,atv,ohv_gt_50,manager",
+            max_offset=0.00025,
+        )
+        return (
+            rasterize_collection(
+                collection,
+                transform,
+                shape_,
+                projector=forward,
+                value=1,
+            ).astype(bool),
+            [],
+        )
+    except Exception as error:
+        return (
+            np.zeros(shape_, dtype=bool),
+            [f"COTREX trail-pressure layer unavailable: {error}"],
+        )
+
+
+def point_cell(
+    transform: rasterio.Affine,
+    point: Point,
+    shape_: tuple[int, int],
+    forward: Transformer,
+) -> tuple[int, int] | None:
+    x_coord, y_coord = forward.transform(point.x, point.y)
+    row, column = rowcol(transform, x_coord, y_coord)
+    row = int(row)
+    column = int(column)
+    if row < 0 or column < 0 or row >= shape_[0] or column >= shape_[1]:
+        return None
+    return row, column
+
+
+def route_between(
+    start: tuple[int, int],
+    end: tuple[int, int],
+    cost: np.ndarray,
+) -> list[tuple[int, int]]:
+    margin = 18
+    row_min = max(0, min(start[0], end[0]) - margin)
+    row_max = min(cost.shape[0], max(start[0], end[0]) + margin + 1)
+    col_min = max(0, min(start[1], end[1]) - margin)
+    col_max = min(cost.shape[1], max(start[1], end[1]) + margin + 1)
+    local_cost = cost[row_min:row_max, col_min:col_max]
+    local_start = (start[0] - row_min, start[1] - col_min)
+    local_end = (end[0] - row_min, end[1] - col_min)
+    try:
+        route, _ = route_through_array(
+            local_cost,
+            local_start,
+            local_end,
+            fully_connected=True,
+            geometric=True,
+        )
+    except Exception:
+        return [start, end]
+    sampled = [
+        (row + row_min, column + col_min)
+        for row, column in route[::2]
+    ]
+    final = (route[-1][0] + row_min, route[-1][1] + col_min)
+    if sampled[-1] != final:
+        sampled.append(final)
+    return sampled
+
+
+def route_length_m(route: list[tuple[int, int]], pixel_ground_m: float) -> float:
+    return sum(
+        math.hypot(right[0] - left[0], right[1] - left[1]) * pixel_ground_m
+        for left, right in zip(route, route[1:])
+    )
+
+
+def load_human_food_sources(
+    session: requests.Session,
+    bbox: tuple[float, float, float, float],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    definitions = (
+        (
+            "CPW campgrounds",
+            CPW_CAMPGROUNDS,
+            "Display='Yes'",
+            "Name,Manager,CGNumSites,CGPropertyName",
+            "Campground",
+        ),
+        (
+            "CPW SWA campsites",
+            CPW_SWA_CAMPSITES,
+            "1=1",
+            "PROPNAME,TYPE_DETAIL,SITE_COUNT,MGMT_AUTH",
+            "SWA campsite",
+        ),
+        (
+            "USFS campgrounds",
+            USFS_CAMPGROUNDS,
+            "site_type IN ('CAMPGROUND','GROUP CAMPGROUND','HORSE CAMP','CAMPING AREA')",
+            "site_name,site_type,managing_org,total_capacity,operated_by",
+            "Campground",
+        ),
+        (
+            "BLM campgrounds",
+            BLM_CAMPGROUNDS,
+            "State='CO'",
+            "FacilityName,FacilityTypeDescription,State",
+            "Campground",
+        ),
+    )
+    sources: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    for label, url, where, fields, default_category in definitions:
+        try:
+            collection = arcgis_geojson(
+                session,
+                url,
+                where=where,
+                out_fields=fields,
+                bbox=bbox,
+                max_offset=0.00005,
+            )
+        except Exception as error:
+            warnings.append(f"{label} unavailable during build")
+            log(f"  {label} unavailable: {error}")
+            continue
+        for feature in collection.get("features", []):
+            if feature.get("geometry", {}).get("type") != "Point":
+                continue
+            coordinates = feature["geometry"].get("coordinates", [])
+            if len(coordinates) < 2:
+                continue
+            longitude, latitude = coordinates[:2]
+            if not all(isinstance(value, (int, float)) for value in (longitude, latitude)):
+                continue
+            properties = feature.get("properties", {})
+            name = source_text(
+                properties,
+                "Name",
+                "PROPNAME",
+                "site_name",
+                "FacilityName",
+                "CGPropertyName",
+            )
+            if not name:
+                continue
+            category = (
+                default_category
+                if default_category == "SWA campsite"
+                else source_text(
+                    properties,
+                    "site_type",
+                    "FacilityTypeDescription",
+                ) or default_category
+            )
+            manager = source_text(
+                properties,
+                "Manager",
+                "MGMT_AUTH",
+                "operated_by",
+                "managing_org",
+            ) or label.split()[0]
+            sources.append(
+                {
+                    "point": Point(float(longitude), float(latitude)),
+                    "name": name,
+                    "category": category,
+                    "manager": manager,
+                    "capacity": source_number(
+                        properties,
+                        "CGNumSites",
+                        "SITE_COUNT",
+                        "total_capacity",
+                    ),
+                    "inventory": label,
+                }
+            )
+
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[str, float, float]] = set()
+    for source in sources:
+        point = source["point"]
+        key = (
+            re.sub(r"[^a-z0-9]+", " ", source["name"].lower()).strip(),
+            round(point.x, 3),
+            round(point.y, 3),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(source)
+    return deduped, warnings
+
+
+def habitation_sources(
+    developed: np.ndarray,
+    hunt_mask: np.ndarray,
+    transform: rasterio.Affine,
+    inverse: Transformer,
+    names: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    populated = [name for name in names if name.get("class") == "Populated Place"]
+    density = uniform_filter(developed.astype(np.float32), size=5)
+    cores = (density >= 0.24) & hunt_mask
+    labels, _ = connected_components(cores)
+    sources: list[dict[str, Any]] = []
+
+    for component_id, slices in enumerate(find_objects(labels), start=1):
+        if slices is None:
+            continue
+        local = labels[slices] == component_id
+        if np.count_nonzero(local) < 5:
+            continue
+        cells = np.argwhere(local)
+        row = int(round(float(cells[:, 0].mean()))) + slices[0].start
+        column = int(round(float(cells[:, 1].mean()))) + slices[1].start
+        component_cells = np.argwhere(labels[slices] == component_id)
+        nearest_index = int(
+            np.argmin(
+                np.square(component_cells[:, 0] + slices[0].start - row)
+                + np.square(component_cells[:, 1] + slices[1].start - column)
+            )
+        )
+        row = int(component_cells[nearest_index, 0] + slices[0].start)
+        column = int(component_cells[nearest_index, 1] + slices[1].start)
+        point = point_from_cell(transform, inverse, (row, column))
+
+        nearby = None
+        if populated:
+            latitude_scale = math.cos(math.radians(point.y))
+            candidate = min(
+                populated,
+                key=lambda item: (
+                    ((item["longitude"] - point.x) * latitude_scale) ** 2
+                    + (item["latitude"] - point.y) ** 2
+                ),
+            )
+            distance_m = math.hypot(
+                (candidate["longitude"] - point.x) * latitude_scale,
+                candidate["latitude"] - point.y,
+            ) * 111_320
+            if distance_m <= 4_000:
+                nearby = candidate
+        sources.append(
+            {
+                "point": point,
+                "name": (
+                    f"Developed area near {nearby['name']}"
+                    if nearby
+                    else "Mapped developed area"
+                ),
+                "category": "Developed area",
+                "manager": "LANDFIRE 2025",
+                "capacity": None,
+                "inventory": "LANDFIRE developed-land proxy",
+            }
+        )
+
+    for place in populated:
+        point = Point(float(place["longitude"]), float(place["latitude"]))
+        if any(point.distance(source["point"]) < 0.011 for source in sources):
+            continue
+        sources.append(
+            {
+                "point": point,
+                "name": str(place["name"]),
+                "category": "Populated place",
+                "manager": "USGS GNIS",
+                "capacity": None,
+                "inventory": "USGS populated-place gazetteer",
+            }
+        )
+    return sources
+
+
+def source_strength(source: dict[str, Any]) -> float:
+    category = str(source.get("category", "")).lower()
+    inventory = str(source.get("inventory", "")).lower()
+    if "camp" in category or "camp" in inventory:
+        value = 0.88
+    elif "developed" in category:
+        value = 0.72
+    else:
+        value = 0.66
+    capacity = source.get("capacity")
+    if isinstance(capacity, (int, float)) and capacity > 0:
+        value += min(0.1, math.log1p(float(capacity)) / 55)
+    return min(value, 1.0)
+
+
+def conflict_linked_source_clusters(
+    sources: list[dict[str, Any]],
+    conflict_geometry: Any,
+    hunt_geometry: Any,
+    forward: Transformer,
+) -> list[dict[str, Any]]:
+    conflict_projected = transform_geometry(forward.transform, conflict_geometry)
+    hunt_projected = transform_geometry(forward.transform, hunt_geometry)
+    candidates: list[dict[str, Any]] = []
+    for source in sources:
+        point = source["point"]
+        projected = Point(*forward.transform(point.x, point.y))
+        if not hunt_projected.buffer(200).contains(projected):
+            continue
+        conflict_distance_m = float(projected.distance(conflict_projected))
+        if conflict_distance_m > 2_400:
+            continue
+        candidates.append(
+            {
+                **source,
+                "projected": projected,
+                "conflictDistanceM": conflict_distance_m,
+                "strength": source_strength(source),
+            }
+        )
+
+    candidates.sort(
+        key=lambda source: (
+            source["conflictDistanceM"] > 1,
+            source["conflictDistanceM"],
+            -source["strength"],
+        )
+    )
+    unassigned = set(range(len(candidates)))
+    clusters: list[dict[str, Any]] = []
+    while unassigned:
+        seed_index = min(
+            unassigned,
+            key=lambda index: (
+                candidates[index]["conflictDistanceM"] > 1,
+                candidates[index]["conflictDistanceM"],
+                -candidates[index]["strength"],
+            ),
+        )
+        seed = candidates[seed_index]
+        members = [
+            index
+            for index in unassigned
+            if candidates[index]["projected"].distance(seed["projected"]) <= 1_200
+        ]
+        for index in members:
+            unassigned.remove(index)
+        member_sources = [candidates[index] for index in members]
+        primary = min(
+            member_sources,
+            key=lambda source: (
+                source["conflictDistanceM"] > 1,
+                -source["strength"],
+                source["conflictDistanceM"],
+            ),
+        )
+        conflict_distance_m = min(
+            float(source["conflictDistanceM"]) for source in member_sources
+        )
+        conflict_score = (
+            1.0
+            if conflict_distance_m <= 1
+            else math.exp(-conflict_distance_m / 1_150)
+        )
+        clusters.append(
+            {
+                **primary,
+                "members": member_sources,
+                "sourceCount": len(member_sources),
+                "conflictDistanceM": conflict_distance_m,
+                "conflictScore": conflict_score,
+                "strength": max(source["strength"] for source in member_sources),
+            }
+        )
+    return clusters
+
+
+def choose_security_cells(
+    source_cell: tuple[int, int],
+    candidate_cells: np.ndarray,
+    security_score: np.ndarray,
+    pixel_ground_m: float,
+    *,
+    maximum_options: int = 5,
+) -> list[tuple[int, int]]:
+    if not candidate_cells.size:
+        return []
+    row, column = source_cell
+    offsets = candidate_cells - np.array((row, column))
+    distances = np.hypot(offsets[:, 0], offsets[:, 1]) * pixel_ground_m
+    nearby = (distances >= 1_600) & (distances <= 5_200)
+    local_cells = candidate_cells[nearby]
+    local_distances = distances[nearby]
+    if not local_cells.size:
+        return []
+    desirability = security_score[local_cells[:, 0], local_cells[:, 1]]
+    desirability -= np.clip((local_distances - 3_400) / 12_000, 0, 0.18)
+    order = np.argsort(desirability)[::-1]
+    selected: list[tuple[int, int]] = []
+    selected_angles: list[float] = []
+    for index in order:
+        candidate = (int(local_cells[index, 0]), int(local_cells[index, 1]))
+        candidate_score = float(security_score[candidate])
+        if candidate_score < 0.43:
+            continue
+        if any(
+            math.hypot(candidate[0] - other[0], candidate[1] - other[1])
+            * pixel_ground_m
+            < 1_150
+            for other in selected
+        ):
+            continue
+        angle = math.degrees(math.atan2(candidate[0] - row, candidate[1] - column))
+        if any(
+            min(abs(angle - other), 360 - abs(angle - other)) < 24
+            and math.hypot(candidate[0] - other_cell[0], candidate[1] - other_cell[1])
+            * pixel_ground_m
+            < 2_300
+            for other, other_cell in zip(selected_angles, selected)
+        ):
+            continue
+        selected.append(candidate)
+        selected_angles.append(angle)
+        if len(selected) == maximum_options:
+            break
+    return selected
+
+
+def security_area_polygon(
+    security_score: np.ndarray,
+    public_mask: np.ndarray,
+    target: tuple[int, int],
+    transform: rasterio.Affine,
+    inverse: Transformer,
+    pixel_ground_m: float,
+) -> Any:
+    row, column = target
+    radius = max(4, round(550 / pixel_ground_m))
+    threshold = max(0.45, float(security_score[target]) * 0.78)
+    zone = (security_score >= threshold) & public_mask
+    rows, columns = np.ogrid[: zone.shape[0], : zone.shape[1]]
+    zone &= np.square(rows - row) + np.square(columns - column) <= radius**2
+    polygons = []
+    target_x, target_y = xy(transform, row, column)
+    for geometry, value in shapes(zone.astype("uint8"), mask=zone, transform=transform):
+        if value != 1:
+            continue
+        polygon = shape(geometry)
+        if polygon.buffer(1).contains(Point(target_x, target_y)):
+            polygons.append(polygon)
+    if polygons:
+        projected = max(polygons, key=lambda polygon: polygon.area).simplify(30)
+    else:
+        projected = Point(target_x, target_y).buffer(220)
+    return transform_geometry(inverse.transform, projected)
+
+
+def select_human_sources(
+    clusters: list[dict[str, Any]],
+    transform: rasterio.Affine,
+    forward: Transformer,
+    hunt_mask: np.ndarray,
+    gmu_raster: np.ndarray,
+    candidate_cells: np.ndarray,
+    security_score: np.ndarray,
+    pixel_ground_m: float,
+) -> list[dict[str, Any]]:
+    viable: list[dict[str, Any]] = []
+    for cluster in clusters:
+        cell = point_cell(transform, cluster["point"], hunt_mask.shape, forward)
+        if cell is None or not hunt_mask[cell]:
+            continue
+        security_cells = choose_security_cells(
+            cell,
+            candidate_cells,
+            security_score,
+            pixel_ground_m,
+        )
+        if len(security_cells) < 2:
+            continue
+        security_quality = float(
+            np.mean([security_score[security] for security in security_cells])
+        )
+        cluster_bonus = min(math.log1p(cluster["sourceCount"]) / math.log(6), 1)
+        priority = (
+            0.68 * cluster["conflictScore"]
+            + 0.17 * cluster["strength"]
+            + 0.10 * security_quality
+            + 0.05 * cluster_bonus
+        )
+        viable.append(
+            {
+                **cluster,
+                "cell": cell,
+                "gmu": int(gmu_raster[cell]),
+                "priority": priority,
+                "securityCells": security_cells,
+            }
+        )
+    viable.sort(key=lambda source: source["priority"], reverse=True)
+
+    selected: list[dict[str, Any]] = []
+    unit_counts: dict[int, int] = defaultdict(int)
+    for minimum_spacing, unit_limit in ((5_000, 2), (3_000, 3), (1_500, 4)):
+        for source in viable:
+            if source in selected or len(selected) >= 8:
+                continue
+            if unit_counts[source["gmu"]] >= unit_limit:
+                continue
+            if any(
+                source["projected"].distance(other["projected"]) < minimum_spacing
+                for other in selected
+            ):
+                continue
+            selected.append(source)
+            unit_counts[source["gmu"]] += 1
+        if len(selected) >= 8:
+            break
+    return sorted(selected, key=lambda source: source["priority"], reverse=True)
+
+
 def point_from_cell(
     transform: rasterio.Affine,
     inverse_transformer: Transformer,
@@ -1035,6 +1607,380 @@ def as_feature(geometry: Any, properties: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def write_human_food_gpx(
+    sources: list[dict[str, Any]],
+    security_options: list[dict[str, Any]],
+    corridors: list[dict[str, Any]],
+) -> None:
+    from xml.sax.saxutils import escape
+
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<gpx version="1.1" creator="Colorado Hunt Finder" '
+        'xmlns="http://www.topografix.com/GPX/1/1">',
+        f"  <metadata><name>{HUNT_CODE} human-food corridors</name></metadata>",
+    ]
+    for feature in sources:
+        properties = feature["properties"]
+        longitude, latitude = feature["geometry"]["coordinates"]
+        lines.append(
+            f'  <wpt lat="{latitude:.6f}" lon="{longitude:.6f}">'
+            f"<name>{escape(properties['shortName'])} · CONTEXT</name>"
+            f"<desc>{escape(properties['summary'])}</desc>"
+            "<type>Human-food context — not a setup location</type></wpt>"
+        )
+    for feature in security_options:
+        properties = feature["properties"]
+        longitude, latitude = feature["geometry"]["coordinates"]
+        lines.append(
+            f'  <wpt lat="{latitude:.6f}" lon="{longitude:.6f}">'
+            f"<name>{escape(properties['name'])}</name>"
+            f"<desc>{escape(properties['summary'])}</desc>"
+            "<type>Modeled security option — verify access and sign</type></wpt>"
+        )
+    for feature in corridors:
+        properties = feature["properties"]
+        lines.append(f"  <trk><name>{escape(properties['name'])}</name><trkseg>")
+        for longitude, latitude in feature["geometry"]["coordinates"]:
+            lines.append(f'    <trkpt lat="{latitude:.6f}" lon="{longitude:.6f}" />')
+        lines.append("  </trkseg></trk>")
+    lines.append("</gpx>")
+    OUTPUT_GPX.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def build_human_food_analysis(
+    session: requests.Session,
+    as_of: date,
+    temporary: Path,
+    units_collection: dict[str, Any],
+    hunt_geometry: Any,
+    bbox: tuple[float, float, float, float],
+    transform: rasterio.Affine,
+    forward: Transformer,
+    inverse: Transformer,
+    pixel_ground_m: float,
+    hunt_mask: np.ndarray,
+    gmu_raster: np.ndarray,
+    elevation: np.ndarray,
+    cover: np.ndarray,
+    developed: np.ndarray,
+    slope: np.ndarray,
+    aspect: np.ndarray,
+    draw: np.ndarray,
+    bench: np.ndarray,
+    northeast: np.ndarray,
+    public_mask: np.ndarray,
+    trail_mask: np.ndarray,
+    warnings: list[str],
+) -> None:
+    log("Loading CPW historical conflict areas")
+    conflict_collection = arcgis_geojson(
+        session,
+        CPW_BEAR_CONFLICT,
+        bbox=bbox,
+        out_fields="ACTIVITYCO,EDIT_DATE",
+        max_offset=0.00025,
+    )
+    conflict_geometries = []
+    for feature in conflict_collection.get("features", []):
+        geometry = feature.get("geometry")
+        if not geometry:
+            continue
+        clipped = make_valid(shape(geometry)).intersection(hunt_geometry)
+        if not clipped.is_empty:
+            conflict_geometries.append(clipped)
+    if not conflict_geometries:
+        raise BuildWarning("No CPW historical conflict polygons intersect the hunt area")
+    conflict_geometry = unary_union(conflict_geometries)
+
+    try:
+        log("Loading USGS place names and habitation anchors")
+        gnis_names = read_gnis_names(session, temporary, bbox)
+    except Exception as error:
+        warnings.append(f"GNIS place names unavailable: {error}")
+        gnis_names = []
+
+    log("Loading developed camping inventories")
+    inventory_sources, inventory_warnings = load_human_food_sources(session, bbox)
+    warnings.extend(inventory_warnings)
+    habitation = habitation_sources(
+        developed,
+        hunt_mask,
+        transform,
+        inverse,
+        gnis_names,
+    )
+    all_sources = inventory_sources + habitation
+    clusters = conflict_linked_source_clusters(
+        all_sources,
+        conflict_geometry,
+        hunt_geometry,
+        forward,
+    )
+    if not clusters:
+        raise BuildWarning("No mapped campsite or habitation source was linked to conflict habitat")
+
+    secure = np.clip(
+        0.68 * cover
+        + 0.17 * northeast
+        + 0.15 * np.clip((slope - 12) / 18, 0, 1),
+        0,
+        1,
+    )
+    secure = gaussian_filter(secure, sigma=2)
+    secure_pixels = (secure >= 0.54) & hunt_mask & public_mask
+    cover_width = distance_transform_edt(secure_pixels) * pixel_ground_m
+    pinch = np.exp(-np.square((cover_width - 125) / 120)) * secure_pixels
+    trail_distance = distance_transform_edt(~trail_mask) * pixel_ground_m
+    trail_penalty = np.clip(np.exp(-trail_distance / 230) * 0.75, 0, 1)
+    security_score = np.clip(
+        0.60 * secure
+        + 0.18 * draw
+        + 0.12 * bench
+        + 0.10 * pinch
+        - 0.16 * trail_penalty,
+        0,
+        1,
+    )
+    security_eligible = (
+        secure_pixels
+        & (slope >= 4)
+        & (slope <= 38)
+        & (security_score >= 0.43)
+    )
+    maximum_window = max(7, round(800 / pixel_ground_m))
+    security_maxima = (
+        security_score
+        == maximum_filter(security_score, size=maximum_window, mode="nearest")
+    ) & security_eligible
+    candidate_cells = np.argwhere(security_maxima)
+    selected_sources = select_human_sources(
+        clusters,
+        transform,
+        forward,
+        hunt_mask,
+        gmu_raster,
+        candidate_cells,
+        security_score,
+        pixel_ground_m,
+    )
+    if not selected_sources:
+        raise BuildWarning("No conflict-linked source had two nearby public-land security options")
+
+    travel_cost = np.clip(
+        1.2
+        + np.square(np.clip((slope - 16) / 18, -0.5, 1.8))
+        + 1.35 * (1 - cover)
+        - 0.46 * draw
+        - 0.28 * bench
+        + 2.4 * trail_penalty,
+        0.08,
+        8,
+    )
+    travel_cost[~hunt_mask] = 100
+
+    features: list[dict[str, Any]] = []
+    source_features: list[dict[str, Any]] = []
+    security_features: list[dict[str, Any]] = []
+    corridor_features: list[dict[str, Any]] = []
+    for feature in units_collection.get("features", []):
+        features.append(
+            as_feature(
+                shape(feature["geometry"]),
+                {
+                    "kind": "hunt-boundary",
+                    "huntCode": HUNT_CODE,
+                    "gmu": int(feature["properties"]["GMUID"]),
+                },
+            )
+        )
+    for index, geometry in enumerate(conflict_geometries, start=1):
+        features.append(
+            as_feature(
+                geometry,
+                {
+                    "kind": "human-conflict",
+                    "conflictId": f"conflict-{index}",
+                    "source": "CPW Species Activity Mapping",
+                    "meaning": "Historical human-conflict area; not a current sighting",
+                },
+            )
+        )
+
+    for rank, source in enumerate(selected_sources, start=1):
+        target_id = f"target-{rank}"
+        source_point = source["point"]
+        source_cell = source["cell"]
+        conflict_distance_m = float(source["conflictDistanceM"])
+        conflict_distance_miles = conflict_distance_m / 1_609.344
+        relative_score = int(round(np.clip(55 + 44 * source["priority"], 60, 99)))
+        security_cells = source["securityCells"]
+        categories = sorted(
+            {str(member["category"]) for member in source["members"]}
+        )
+        conflict_reason = (
+            "mapped source overlaps CPW historical conflict habitat"
+            if conflict_distance_m <= 1
+            else f"mapped source is {conflict_distance_miles:.1f} mi from CPW conflict habitat"
+        )
+        summary = (
+            f"Human-food priority {relative_score}/100 with {len(security_cells)} "
+            "modeled public-land security options. The source is context only; "
+            "verify fresh sign, legal access, and a safe setup away from development."
+        )
+        target_properties = {
+            "kind": "target",
+            "model": "human-food",
+            "targetId": target_id,
+            "rank": rank,
+            "name": source["name"],
+            "shortName": f"H{rank:02d} · {source['name']}",
+            "sourceCategory": source["category"],
+            "sourceCategories": categories,
+            "sourceManager": source["manager"],
+            "sourceInventory": source["inventory"],
+            "sourceCount": int(source["sourceCount"]),
+            "huntCode": HUNT_CODE,
+            "gmu": int(source["gmu"]),
+            "relativeScore": relative_score,
+            "conflictScore": round(float(source["conflictScore"]) * 100),
+            "conflictDistanceMiles": round(conflict_distance_miles, 2),
+            "securityOptions": len(security_cells),
+            "reason1": conflict_reason,
+            "reason2": (
+                f"{source['sourceCount']} mapped campsite/habitation records converge here"
+                if source["sourceCount"] > 1
+                else f"mapped {source['category'].lower()} supplies the human-food hypothesis"
+            ),
+            "reason3": f"{len(security_cells)} distinct federal-land security areas are nearby",
+            "caveat1": "historical conflict mapping is not a current bear report",
+            "caveat2": "do not hunt at or shoot toward campsites, homes, roads, or occupied areas",
+            "summary": summary,
+            "latitude": round(source_point.y, 6),
+            "longitude": round(source_point.x, 6),
+            "analysisDate": as_of.isoformat(),
+        }
+        source_feature = as_feature(source_point, target_properties)
+        source_features.append(source_feature)
+        features.append(source_feature)
+
+        for option_index, security_cell in enumerate(security_cells, start=1):
+            option_label = chr(64 + option_index)
+            security_id = f"{target_id}-security-{option_index}"
+            security_point = point_from_cell(transform, inverse, security_cell)
+            nearby = nearest_name(gnis_names, security_point.x, security_point.y)
+            nearby_name = nearby["name"] if nearby else f"GMU {int(gmu_raster[security_cell])} cover"
+            route = route_between(source_cell, security_cell, travel_cost)
+            route_to_food = list(reversed(route))
+            route_rows = np.array([cell[0] for cell in route], dtype=int)
+            route_columns = np.array([cell[1] for cell in route], dtype=int)
+            direct_distance_m = math.hypot(
+                security_cell[0] - source_cell[0],
+                security_cell[1] - source_cell[1],
+            ) * pixel_ground_m
+            modeled_route_m = route_length_m(route, pixel_ground_m)
+            option_name = f"H{rank:02d}{option_label} · {nearby_name}"
+            option_summary = (
+                f"{direct_distance_m / 1_609.344:.1f} mi from {source['name']}; "
+                f"modeled route {modeled_route_m / 1_609.344:.1f} mi; "
+                f"security score {round(float(security_score[security_cell]) * 100)}/100. "
+                "Verify ownership, closures, current sign, wind, and safe shooting conditions."
+            )
+            common_properties = {
+                "targetId": target_id,
+                "securityId": security_id,
+                "option": option_index,
+                "optionLabel": option_label,
+                "name": option_name,
+                "sourceName": source["name"],
+                "gmu": int(gmu_raster[security_cell]),
+                "securityScore": round(float(security_score[security_cell]) * 100),
+                "cover": round(float(secure[security_cell]) * 100),
+                "routeCover": round(float(np.mean(cover[route_rows, route_columns])) * 100),
+                "pressure": round(float(np.mean(trail_penalty[route_rows, route_columns])) * 100),
+                "distanceMiles": round(direct_distance_m / 1_609.344, 2),
+                "routeMiles": round(modeled_route_m / 1_609.344, 2),
+                "elevationFt": round(float(elevation[security_cell]) * 3.28084),
+                "slopeDegrees": round(float(slope[security_cell])),
+                "latitude": round(security_point.y, 6),
+                "longitude": round(security_point.x, 6),
+                "summary": option_summary,
+                "verified": False,
+            }
+            security_polygon = security_area_polygon(
+                security_score,
+                public_mask,
+                security_cell,
+                transform,
+                inverse,
+                pixel_ground_m,
+            )
+            features.append(
+                as_feature(
+                    security_polygon,
+                    {"kind": "security-area", **common_properties},
+                )
+            )
+            security_feature = as_feature(
+                security_point,
+                {"kind": "security", **common_properties},
+            )
+            security_features.append(security_feature)
+            features.append(security_feature)
+            corridor_feature = as_feature(
+                route_geometry(transform, inverse, route_to_food),
+                {
+                    "kind": "corridor",
+                    **common_properties,
+                    "name": f"{option_name} → {source['name']}",
+                },
+            )
+            corridor_features.append(corridor_feature)
+            features.append(corridor_feature)
+
+    metadata = {
+        "huntCode": HUNT_CODE,
+        "units": list(HUNT_UNITS),
+        "season": "2026-09-02/2026-09-30",
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "analysisDate": as_of.isoformat(),
+        "imageryDate": None,
+        "droughtUpdated": None,
+        "mode": "human-food",
+        "methodVersion": "0.2-human-food-corridors",
+        "scoreMeaning": (
+            "Relative human-food priority led by CPW historical conflict overlap; "
+            "not bear probability or a current sighting."
+        ),
+        "sourceCount": len(source_features),
+        "securityOptionCount": len(security_features),
+        "sources": {
+            "conflict": SOURCE_LINKS["cpw"],
+            "campgrounds": SOURCE_LINKS["campgrounds"],
+            "habitation": SOURCE_LINKS["habitation"],
+            "landfire": SOURCE_LINKS["landfire"],
+            "terrain": SOURCE_LINKS["terrain"],
+        },
+        "warnings": warnings,
+    }
+    collection = {
+        "type": "FeatureCollection",
+        "features": features,
+        "metadata": metadata,
+    }
+    OUTPUT_GEOJSON.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_GEOJSON.write_text(
+        json.dumps(collection, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    write_human_food_gpx(source_features, security_features, corridor_features)
+    log(
+        f"Wrote {len(source_features)} human-food sources, "
+        f"{len(security_features)} security options, and "
+        f"{len(corridor_features)} routes"
+    )
+
+
 def write_gpx(targets: list[dict[str, Any]], corridors: list[dict[str, Any]]) -> None:
     from xml.sax.saxutils import escape
 
@@ -1062,7 +2008,12 @@ def write_gpx(targets: list[dict[str, Any]], corridors: list[dict[str, Any]]) ->
     OUTPUT_GPX.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def run(as_of: date, *, skip_satellite: bool = False) -> None:
+def run(
+    as_of: date,
+    *,
+    mode: str = "human-food",
+    skip_satellite: bool = False,
+) -> None:
     session = make_session()
     warnings: list[str] = []
     with tempfile.TemporaryDirectory(prefix="hunt-assist-targets-") as temp_name:
@@ -1156,7 +2107,11 @@ def run(as_of: date, *, skip_satellite: bool = False) -> None:
             pixel_type="S16",
         ).astype(np.int16)
         evt_table = parse_evt_table(session)
-        food_class, cover, open_food, vegetation_labels = landfire_scores(evt, evc, evt_table)
+        food_class, cover, open_food, developed, vegetation_labels = landfire_scores(
+            evt,
+            evc,
+            evt_table,
+        )
         log(
             "Vegetation diagnostics: "
             f"{np.count_nonzero(open_food & hunt_mask):,} open-food cells; "
@@ -1169,6 +2124,53 @@ def run(as_of: date, *, skip_satellite: bool = False) -> None:
             hunt_mask,
             pixel_ground_m,
         )
+
+        if mode == "human-food":
+            log("Loading trail pressure and federal surface management")
+            trail_mask, trail_warnings = load_trail_mask(
+                session,
+                bbox,
+                transform,
+                shape_,
+                forward,
+            )
+            warnings.extend(trail_warnings)
+            public_mask, access_warnings = public_land_mask(
+                session,
+                bbox,
+                hunt_geometry,
+                transform,
+                shape_,
+                forward,
+            )
+            warnings.extend(access_warnings)
+            public_mask &= hunt_mask
+            build_human_food_analysis(
+                session,
+                as_of,
+                temporary,
+                units_collection,
+                hunt_geometry,
+                bbox,
+                transform,
+                forward,
+                inverse,
+                pixel_ground_m,
+                hunt_mask,
+                gmu_raster,
+                elevation,
+                cover,
+                developed,
+                slope,
+                aspect,
+                draw,
+                bench,
+                northeast,
+                public_mask,
+                trail_mask,
+                warnings,
+            )
+            return
 
         log("Loading CPW fall habitat, trail pressure, drought, and federal land")
         try:
@@ -1190,24 +2192,14 @@ def run(as_of: date, *, skip_satellite: bool = False) -> None:
             warnings.append(f"CPW fall-concentration layer unavailable: {error}")
             fall_mask = np.zeros(shape_, dtype=bool)
 
-        try:
-            trail_collection = arcgis_geojson(
-                session,
-                CPW_COTREX_TRAILS,
-                bbox=bbox,
-                out_fields="name,trail_num,type,hiking,motorcycle,atv,ohv_gt_50,manager",
-                max_offset=0.00025,
-            )
-            trail_mask = rasterize_collection(
-                trail_collection,
-                transform,
-                shape_,
-                projector=forward,
-                value=1,
-            ).astype(bool)
-        except Exception as error:
-            warnings.append(f"COTREX trail-pressure layer unavailable: {error}")
-            trail_mask = np.zeros(shape_, dtype=bool)
+        trail_mask, trail_warnings = load_trail_mask(
+            session,
+            bbox,
+            transform,
+            shape_,
+            forward,
+        )
+        warnings.extend(trail_warnings)
 
         try:
             drought_collection = arcgis_geojson(
@@ -1638,6 +2630,12 @@ def parse_args() -> argparse.Namespace:
         help="Analysis date in YYYY-MM-DD format (default: today)",
     )
     parser.add_argument(
+        "--mode",
+        choices=("human-food", "natural-food"),
+        default="human-food",
+        help="Target model to build (default: human-food)",
+    )
+    parser.add_argument(
         "--skip-satellite",
         action="store_true",
         help="Build with a neutral vegetation signal for offline debugging",
@@ -1647,4 +2645,8 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     arguments = parse_args()
-    run(arguments.as_of, skip_satellite=arguments.skip_satellite)
+    run(
+        arguments.as_of,
+        mode=arguments.mode,
+        skip_satellite=arguments.skip_satellite,
+    )

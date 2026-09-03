@@ -389,13 +389,13 @@ export default function HuntMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.getLayer('bear-target-points')) return;
+    if (!map?.getLayer('bear-source-points')) return;
     const targetId = selectedTarget?.properties.targetId ?? null;
     setBearTargetSelection(map, targetId);
     if (!analysisMode || !selectedTarget) return;
     map.flyTo({
       center: selectedTarget.geometry.coordinates as [number, number],
-      zoom: Math.max(map.getZoom(), 11.8),
+      zoom: Math.max(map.getZoom(), 10.2),
       duration: 900,
       essential: true,
     });
@@ -467,14 +467,14 @@ export default function HuntMap({
         <div className="map-toolbar-title">
           <span className="map-kicker">
             {analysisMode
-              ? `BE012O1R · imagery ${targetCollection?.metadata.imageryDate ?? 'loading'}`
+              ? 'BE012O1R · human-food model'
               : 'Colorado · 186 big-game units'}
           </span>
           <strong>
             {analysisMode
               ? selectedTarget
-                ? `#${selectedTarget.properties.rank} · ${selectedTarget.properties.nearbyFeature}`
-                : 'Ranked bear corridors'
+                ? `#${selectedTarget.properties.rank} · ${selectedTarget.properties.name}`
+                : 'Conflict-linked security routes'
               : selectedGmu !== null
                 ? `GMU ${selectedGmu}`
                 : 'Statewide view'}
@@ -489,7 +489,7 @@ export default function HuntMap({
           <span className={`map-status map-status-${mapStatus}`}>
             {mapStatus === 'loading' && 'Loading map…'}
             {mapStatus === 'ready' &&
-              (analysisMode ? 'Target model loaded' : 'Map layers live')}
+              (analysisMode ? 'Human-food model loaded' : 'Map layers live')}
             {mapStatus === 'error' && 'Map unavailable'}
           </span>
         </div>
@@ -503,7 +503,7 @@ export default function HuntMap({
             </strong>
             <span>
               {analysisMode
-                ? 'Orange is the target pocket, mint is a modeled concealed route, and blue is a terrain-screened glassing option. Verify all three on the ground.'
+                ? 'Red is a mapped human-food source—never a setup location. Green marks modeled public-land security cover; mint lines lead from that cover toward the source.'
                 : proxySummary}
             </span>
           </aside>
@@ -511,9 +511,10 @@ export default function HuntMap({
         <div className="map-legend">
           {analysisMode ? (
             <>
-              <span><i className="legend-target" /> Ranked target pocket</span>
-              <span><i className="legend-corridor" /> Modeled corridor</span>
-              <span><i className="legend-glassing" /> Potential glassing point</span>
+              <span><i className="legend-conflict" /> CPW historical conflict</span>
+              <span><i className="legend-target" /> Human-food context</span>
+              <span><i className="legend-security" /> Security option</span>
+              <span><i className="legend-corridor" /> Security → source route</span>
             </>
           ) : (
             <>
@@ -537,7 +538,7 @@ export default function HuntMap({
           {layers.land && <span><i className="legend-land" /> Land management</span>}
         </div>
         <div className="map-hint">
-          {analysisMode ? 'Click a numbered target or its card' : 'Click a unit to filter licenses'}
+          {analysisMode ? 'Choose a source, then compare its A–E security routes' : 'Click a unit to filter licenses'}
         </div>
       </div>
       <footer className="map-footer">

@@ -3,20 +3,23 @@ import type { BearTargetCollection } from '@/lib/bear-targets';
 
 export const BEAR_TARGET_LAYER_IDS = [
   'bear-hunt-area-fill',
-  'bear-target-zones',
-  'bear-target-zone-outlines',
+  'bear-analysis-conflict-fill',
+  'bear-analysis-conflict-outline',
+  'bear-security-areas',
+  'bear-security-area-outlines',
   'bear-corridors',
-  'bear-glassing-halos',
-  'bear-glassing-points',
   'bear-hunt-area-outline',
-  'bear-target-halos',
-  'bear-target-points',
-  'bear-target-labels',
+  'bear-source-halos',
+  'bear-source-points',
+  'bear-source-labels',
+  'bear-security-points',
+  'bear-security-labels',
 ] as const;
 
 export const BEAR_TARGET_INTERACTIVE_LAYERS = [
-  'bear-target-points',
-  'bear-target-zones',
+  'bear-source-points',
+  'bear-security-points',
+  'bear-security-areas',
 ] as const;
 
 export function addOrUpdateBearTargetLayers(
@@ -43,38 +46,54 @@ export function addOrUpdateBearTargetLayers(
     layout: { visibility: 'none' },
     paint: {
       'fill-color': '#081f17',
-      'fill-opacity': 0.07,
+      'fill-opacity': 0.05,
     },
   });
   map.addLayer({
-    id: 'bear-target-zones',
+    id: 'bear-analysis-conflict-fill',
     type: 'fill',
     source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'target-zone'],
+    filter: ['==', ['get', 'kind'], 'human-conflict'],
     layout: { visibility: 'none' },
     paint: {
-      'fill-color': [
-        'interpolate',
-        ['linear'],
-        ['get', 'relativeScore'],
-        60,
-        '#e5b34d',
-        100,
-        '#ef6c36',
-      ],
-      'fill-opacity': 0.3,
+      'fill-color': '#8f3250',
+      'fill-opacity': 0.17,
     },
   });
   map.addLayer({
-    id: 'bear-target-zone-outlines',
+    id: 'bear-analysis-conflict-outline',
     type: 'line',
     source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'target-zone'],
+    filter: ['==', ['get', 'kind'], 'human-conflict'],
     layout: { visibility: 'none' },
     paint: {
-      'line-color': '#ffb44c',
-      'line-opacity': 0.94,
-      'line-width': 2,
+      'line-color': '#bc6683',
+      'line-dasharray': [2, 1.5],
+      'line-opacity': 0.72,
+      'line-width': 1.2,
+    },
+  });
+  map.addLayer({
+    id: 'bear-security-areas',
+    type: 'fill',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'security-area'],
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-color': '#28745b',
+      'fill-opacity': 0.24,
+    },
+  });
+  map.addLayer({
+    id: 'bear-security-area-outlines',
+    type: 'line',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'security-area'],
+    layout: { visibility: 'none' },
+    paint: {
+      'line-color': '#86e1bd',
+      'line-opacity': 0.86,
+      'line-width': 1.8,
     },
   });
   map.addLayer({
@@ -88,43 +107,18 @@ export function addOrUpdateBearTargetLayers(
       'line-join': 'round',
     },
     paint: {
-      'line-color': '#75e1be',
-      'line-dasharray': [2, 1.5],
-      'line-opacity': 0.96,
+      'line-color': '#83e3c2',
+      'line-dasharray': [2, 1.4],
+      'line-opacity': 0.68,
       'line-width': [
         'interpolate',
         ['linear'],
         ['zoom'],
         7,
-        2,
+        1.6,
         13,
-        4,
+        3.8,
       ],
-    },
-  });
-  map.addLayer({
-    id: 'bear-glassing-halos',
-    type: 'circle',
-    source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'glassing'],
-    layout: { visibility: 'none' },
-    paint: {
-      'circle-color': '#d8f5ff',
-      'circle-opacity': 0.28,
-      'circle-radius': 10,
-    },
-  });
-  map.addLayer({
-    id: 'bear-glassing-points',
-    type: 'circle',
-    source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'glassing'],
-    layout: { visibility: 'none' },
-    paint: {
-      'circle-color': '#7ddff5',
-      'circle-radius': 4,
-      'circle-stroke-color': '#082c35',
-      'circle-stroke-width': 1.5,
     },
   });
   map.addLayer({
@@ -135,37 +129,37 @@ export function addOrUpdateBearTargetLayers(
     layout: { visibility: 'none' },
     paint: {
       'line-color': '#f7f1df',
-      'line-opacity': 0.75,
-      'line-width': 1.3,
+      'line-opacity': 0.68,
+      'line-width': 1.2,
     },
   });
   map.addLayer({
-    id: 'bear-target-halos',
+    id: 'bear-source-halos',
     type: 'circle',
     source: 'bear-target-analysis',
     filter: ['==', ['get', 'kind'], 'target'],
     layout: { visibility: 'none' },
     paint: {
-      'circle-color': '#081f17',
-      'circle-opacity': 0.48,
-      'circle-radius': 15,
+      'circle-color': '#4d152c',
+      'circle-opacity': 0.54,
+      'circle-radius': 16,
     },
   });
   map.addLayer({
-    id: 'bear-target-points',
+    id: 'bear-source-points',
     type: 'circle',
     source: 'bear-target-analysis',
     filter: ['==', ['get', 'kind'], 'target'],
     layout: { visibility: 'none' },
     paint: {
-      'circle-color': '#ef7b3d',
+      'circle-color': '#e4673f',
       'circle-radius': 9,
-      'circle-stroke-color': '#fff8e8',
+      'circle-stroke-color': '#fff4e7',
       'circle-stroke-width': 2.2,
     },
   });
   map.addLayer({
-    id: 'bear-target-labels',
+    id: 'bear-source-labels',
     type: 'symbol',
     source: 'bear-target-analysis',
     filter: ['==', ['get', 'kind'], 'target'],
@@ -176,9 +170,34 @@ export function addOrUpdateBearTargetLayers(
       'text-size': 11,
       'text-allow-overlap': true,
     },
+    paint: { 'text-color': '#fffdf5' },
+  });
+  map.addLayer({
+    id: 'bear-security-points',
+    type: 'circle',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'security'],
+    layout: { visibility: 'none' },
     paint: {
-      'text-color': '#fffdf5',
+      'circle-color': '#236f56',
+      'circle-radius': 8,
+      'circle-stroke-color': '#d8fff0',
+      'circle-stroke-width': 2,
     },
+  });
+  map.addLayer({
+    id: 'bear-security-labels',
+    type: 'symbol',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'security'],
+    layout: {
+      visibility: 'none',
+      'text-field': ['get', 'optionLabel'],
+      'text-font': ['Open Sans Semibold'],
+      'text-size': 10,
+      'text-allow-overlap': true,
+    },
+    paint: { 'text-color': '#f4fff9' },
   });
 }
 
@@ -186,29 +205,48 @@ export function setBearTargetSelection(
   map: MapLibreMap,
   targetId: string | null,
 ) {
-  if (!map.getLayer('bear-target-points')) return;
-  map.setPaintProperty('bear-target-points', 'circle-color', [
+  if (!map.getLayer('bear-source-points')) return;
+  const selected = ['==', ['get', 'targetId'], targetId ?? ''];
+  map.setPaintProperty('bear-source-points', 'circle-color', [
     'case',
-    ['==', ['get', 'targetId'], targetId ?? ''],
+    selected,
     '#ffd36a',
-    '#ef7b3d',
+    '#e4673f',
   ]);
-  map.setPaintProperty('bear-target-points', 'circle-radius', [
+  map.setPaintProperty('bear-source-points', 'circle-radius', [
     'case',
-    ['==', ['get', 'targetId'], targetId ?? ''],
+    selected,
     12,
-    9,
+    8,
   ]);
-  map.setPaintProperty('bear-target-zones', 'fill-opacity', [
+  map.setPaintProperty('bear-security-areas', 'fill-opacity', [
     'case',
-    ['==', ['get', 'targetId'], targetId ?? ''],
-    0.5,
+    selected,
+    0.44,
+    0.09,
+  ]);
+  map.setPaintProperty('bear-security-area-outlines', 'line-opacity', [
+    'case',
+    selected,
+    1,
+    0.25,
+  ]);
+  map.setPaintProperty('bear-security-points', 'circle-opacity', [
+    'case',
+    selected,
+    1,
+    0.3,
+  ]);
+  map.setPaintProperty('bear-security-labels', 'text-opacity', [
+    'case',
+    selected,
+    1,
     0.25,
   ]);
   map.setPaintProperty('bear-corridors', 'line-opacity', [
     'case',
-    ['==', ['get', 'targetId'], targetId ?? ''],
+    selected,
     1,
-    0.58,
+    0.14,
   ]);
 }
