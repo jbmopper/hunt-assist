@@ -51,7 +51,7 @@ from scipy.ndimage import (
     uniform_filter,
 )
 from shapely import make_valid
-from shapely.geometry import LineString, Point, mapping, shape
+from shapely.geometry import LineString, Point, box, mapping, shape
 from shapely.ops import transform as transform_geometry
 from shapely.ops import unary_union
 from skimage.draw import line as raster_line
@@ -105,10 +105,20 @@ USGS_3DEP = (
     "https://elevation.nationalmap.gov/arcgis/rest/services/"
     "3DEPElevation/ImageServer"
 )
+USGS_NHD = "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer"
+CENSUS_TRANSPORTATION = (
+    "https://tigerweb.geo.census.gov/arcgis/rest/services/"
+    "TIGERweb/Transportation/MapServer"
+)
 LANDFIRE_ROOT = (
     "https://lfps.usgs.gov/arcgis/rest/services/"
     "Landfire_LF2025"
 )
+
+FINE_GROUND_RESOLUTION_M = 30.0
+FINE_TILE_RADIUS_M = 7_200.0
+SOURCE_CAUTION_RADIUS_M = 805.0
+CORRIDOR_ENSEMBLE_MEMBERS = 10
 EARTH_SEARCH = "https://earth-search.aws.element84.com/v1/search"
 GNIS_COLORADO = (
     "https://prd-tnm.s3.amazonaws.com/StagedProducts/GeographicNames/"
@@ -147,6 +157,8 @@ SOURCE_LINKS = {
     "drought": "https://droughtmonitor.unl.edu/CurrentMap.aspx",
     "campgrounds": "https://ndismaps.nrel.colostate.edu/index.html",
     "habitation": "https://www.usgs.gov/tools/geographic-names-information-system-gnis",
+    "hydrography": "https://www.usgs.gov/national-hydrography/nhdplus-high-resolution",
+    "roads": "https://tigerweb.geo.census.gov/tigerweb/",
 }
 
 
@@ -718,9 +730,15 @@ def terrain_scores(
     slope = np.degrees(np.arctan(np.hypot(gradient_x, gradient_y))).astype(np.float32)
     aspect = (np.degrees(np.arctan2(gradient_x, -gradient_y)) + 360) % 360
 
-    local_elevation = gaussian_filter(filled, sigma=8)
+    local_elevation = gaussian_filter(
+        filled,
+        sigma=max(1.0, 455 / pixel_ground_m),
+    )
     tpi = filled - local_elevation
-    local_slope = gaussian_filter(slope, sigma=6)
+    local_slope = gaussian_filter(
+        slope,
+        sigma=max(1.0, 340 / pixel_ground_m),
+    )
     draw = (
         np.clip((-tpi - 2) / 38, 0, 1)
         * np.clip((slope - 2) / 8, 0, 1)
@@ -738,6 +756,103 @@ def terrain_scores(
     northeast[~mask] = 0
     aspect[~mask] = 0
     return slope, aspect.astype(np.float32), draw, bench, northeast
+
+
+def fine_terrain_scores(
+    elevation: np.ndarray,
+    mask: np.ndarray,
+    pixel_ground_m: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return refuge ruggedness, exposed ridges, and low saddle crossings."""
+    valid_elevation = np.where(mask & (elevation > -500), elevation, np.nan)
+    fill_value = float(np.nanmedian(valid_elevation))
+    filled = np.where(np.isfinite(valid_elevation), valid_elevation, fill_value)
+
+    neighborhood = max(3, round(180 / pixel_ground_m))
+    if neighborhood % 2 == 0:
+        neighborhood += 1
+    mean = uniform_filter(filled, size=neighborhood, mode="nearest")
+    mean_square = uniform_filter(np.square(filled), size=neighborhood, mode="nearest")
+    ruggedness_raw = np.sqrt(np.maximum(mean_square - np.square(mean), 0))
+    ruggedness = normalize_percentile(ruggedness_raw, mask, 10, 90)
+
+    broad = gaussian_filter(filled, sigma=max(1.0, 360 / pixel_ground_m))
+    broad_tpi = filled - broad
+    ridge = np.clip((broad_tpi - 8) / 55, 0, 1).astype(np.float32)
+
+    offset = max(2, round(180 / pixel_ground_m))
+    north = np.roll(filled, -offset, axis=0)
+    south = np.roll(filled, offset, axis=0)
+    west = np.roll(filled, -offset, axis=1)
+    east = np.roll(filled, offset, axis=1)
+    north_south_high = np.clip((np.minimum(north, south) - filled) / 32, 0, 1)
+    east_west_high = np.clip((np.minimum(east, west) - filled) / 32, 0, 1)
+    north_south_low = np.clip((filled - np.maximum(north, south)) / 32, 0, 1)
+    east_west_low = np.clip((filled - np.maximum(east, west)) / 32, 0, 1)
+    saddle = np.maximum(
+        np.minimum(north_south_high, east_west_low),
+        np.minimum(east_west_high, north_south_low),
+    )
+    saddle_sigma = max(0.8, 45 / pixel_ground_m)
+    saddle = gaussian_filter(saddle.astype(np.float32), sigma=saddle_sigma)
+    saddle = np.clip(saddle * 1.8, 0, 1)
+    # np.roll wraps at array edges. Blank the affected fringe so a feature on the
+    # opposite side of a local tile cannot manufacture a saddle.
+    edge_margin = offset + math.ceil(4 * saddle_sigma)
+    saddle[:edge_margin, :] = 0
+    saddle[-edge_margin:, :] = 0
+    saddle[:, :edge_margin] = 0
+    saddle[:, -edge_margin:] = 0
+    ridge *= 1 - 0.7 * saddle
+
+    for values in (ruggedness, ridge, saddle):
+        values[~mask] = 0
+    return ruggedness.astype(np.float32), ridge, saddle.astype(np.float32)
+
+
+def landfire_behavior_scores(
+    evt: np.ndarray,
+    evt_table: dict[int, dict[str, str]],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Translate vegetation classes into literature-informed refuge and water masks."""
+    habitat = np.full(evt.shape, 0.18, dtype=np.float32)
+    water = np.zeros(evt.shape, dtype=bool)
+    for value in np.unique(evt):
+        row = evt_table.get(int(value))
+        if not row:
+            continue
+        mask = evt == value
+        searchable = " ".join(
+            (
+                row.get("EVT_NAME", ""),
+                row.get("EVT_LF", ""),
+                row.get("EVT_PHYS", ""),
+                row.get("EVT_GP_N", ""),
+            )
+        ).lower()
+        if any(token in searchable for token in ("open water", "aquatic")):
+            water[mask] = True
+            habitat[mask] = 0
+        elif any(token in searchable for token in ("riparian", "cottonwood", "willow")):
+            habitat[mask] = 1.0
+        elif "aspen" in searchable:
+            habitat[mask] = 0.96
+        elif any(
+            token in searchable
+            for token in ("conifer", "spruce", "fir", "lodgepole", "ponderosa")
+        ):
+            habitat[mask] = 0.78
+        elif "oak" in searchable:
+            habitat[mask] = 0.68
+        elif "pinyon" in searchable or "juniper" in searchable:
+            habitat[mask] = 0.5
+        elif "shrub" in searchable:
+            habitat[mask] = 0.38
+        elif any(token in searchable for token in ("meadow", "grassland", "herbaceous")):
+            habitat[mask] = 0.24
+        if any(token in searchable for token in ("developed", "barren", "snow", "ice")):
+            habitat[mask] *= 0.12
+    return habitat, water
 
 
 def line_of_sight(
@@ -971,6 +1086,131 @@ def load_trail_mask(
         )
 
 
+def resample_mask(
+    source: np.ndarray,
+    source_transform: rasterio.Affine,
+    destination_transform: rasterio.Affine,
+    destination_shape: tuple[int, int],
+) -> np.ndarray:
+    destination = np.zeros(destination_shape, dtype="uint8")
+    reproject(
+        source=source.astype("uint8"),
+        destination=destination,
+        src_transform=source_transform,
+        src_crs="EPSG:3857",
+        dst_transform=destination_transform,
+        dst_crs="EPSG:3857",
+        resampling=Resampling.nearest,
+    )
+    return destination.astype(bool)
+
+
+def load_local_movement_masks(
+    session: requests.Session,
+    bbox: tuple[float, float, float, float],
+    transform: rasterio.Affine,
+    shape_: tuple[int, int],
+    forward: Transformer,
+) -> tuple[dict[str, np.ndarray], list[str]]:
+    """Load fine-scale hydrography, roads, and recreation trails for one source tile."""
+    masks = {
+        name: np.zeros(shape_, dtype=bool)
+        for name in (
+            "drainage",
+            "perennial",
+            "waterbody",
+            "primaryRoad",
+            "secondaryRoad",
+            "localRoad",
+            "trail",
+        )
+    }
+    warnings: list[str] = []
+
+    try:
+        flowlines = arcgis_geojson(
+            session,
+            f"{USGS_NHD}/6",
+            where="FTYPE=460",
+            out_fields="FTYPE,FCODE,GNIS_NAME",
+            bbox=bbox,
+            max_offset=0.00002,
+        )
+        masks["drainage"] = rasterize_collection(
+            flowlines,
+            transform,
+            shape_,
+            projector=forward,
+            value=1,
+        ).astype(bool)
+        perennial = {
+            "type": "FeatureCollection",
+            "features": [
+                feature
+                for feature in flowlines.get("features", [])
+                if int(feature.get("properties", {}).get("FCODE", 0) or 0)
+                in (46000, 46006)
+            ],
+        }
+        masks["perennial"] = rasterize_collection(
+            perennial,
+            transform,
+            shape_,
+            projector=forward,
+            value=1,
+        ).astype(bool)
+    except Exception as error:
+        warnings.append(f"USGS hydrography unavailable for a refinement tile: {error}")
+
+    try:
+        waterbodies = arcgis_geojson(
+            session,
+            f"{USGS_NHD}/12",
+            out_fields="FTYPE,FCODE,GNIS_NAME",
+            bbox=bbox,
+            max_offset=0.00002,
+        )
+        masks["waterbody"] = rasterize_collection(
+            waterbodies,
+            transform,
+            shape_,
+            projector=forward,
+            value=1,
+        ).astype(bool)
+    except Exception as error:
+        warnings.append(f"USGS waterbody barriers unavailable for a refinement tile: {error}")
+
+    road_layers = ((2, "primaryRoad"), (6, "secondaryRoad"), (8, "localRoad"))
+    for layer_id, key in road_layers:
+        try:
+            roads = arcgis_geojson(
+                session,
+                f"{CENSUS_TRANSPORTATION}/{layer_id}",
+                out_fields="MTFCC,RTTYP,NAME",
+                bbox=bbox,
+                max_offset=0.00002,
+            )
+            masks[key] = rasterize_collection(
+                roads,
+                transform,
+                shape_,
+                projector=forward,
+                value=1,
+            ).astype(bool)
+        except Exception as error:
+            warnings.append(f"Census {key} layer unavailable for a refinement tile: {error}")
+
+    masks["trail"], trail_warnings = load_trail_mask(
+        session,
+        bbox,
+        transform,
+        shape_,
+        forward,
+    )
+    warnings.extend(trail_warnings)
+    return masks, warnings
+
+
 def point_cell(
     transform: rasterio.Affine,
     point: Point,
@@ -990,8 +1230,11 @@ def route_between(
     start: tuple[int, int],
     end: tuple[int, int],
     cost: np.ndarray,
+    pixel_ground_m: float,
+    *,
+    margin_m: float = 2_000,
 ) -> list[tuple[int, int]]:
-    margin = 18
+    margin = max(18, round(margin_m / pixel_ground_m))
     row_min = max(0, min(start[0], end[0]) - margin)
     row_max = min(cost.shape[0], max(start[0], end[0]) + margin + 1)
     col_min = max(0, min(start[1], end[1]) - margin)
@@ -1009,14 +1252,7 @@ def route_between(
         )
     except Exception:
         return [start, end]
-    sampled = [
-        (row + row_min, column + col_min)
-        for row, column in route[::2]
-    ]
-    final = (route[-1][0] + row_min, route[-1][1] + col_min)
-    if sampled[-1] != final:
-        sampled.append(final)
-    return sampled
+    return [(row + row_min, column + col_min) for row, column in route]
 
 
 def route_length_m(route: list[tuple[int, int]], pixel_ground_m: float) -> float:
@@ -1024,6 +1260,126 @@ def route_length_m(route: list[tuple[int, int]], pixel_ground_m: float) -> float
         math.hypot(right[0] - left[0], right[1] - left[1]) * pixel_ground_m
         for left, right in zip(route, route[1:])
     )
+
+
+def route_cost(
+    route: list[tuple[int, int]],
+    cost: np.ndarray,
+    pixel_ground_m: float,
+) -> float:
+    total = 0.0
+    for left, right in zip(route, route[1:]):
+        step = math.hypot(right[0] - left[0], right[1] - left[1])
+        total += (
+            float(cost[left]) + float(cost[right])
+        ) * 0.5 * step * pixel_ground_m
+    return total
+
+
+def trim_route_to_source_buffer(
+    route: list[tuple[int, int]],
+    source: tuple[int, int],
+    pixel_ground_m: float,
+    radius_m: float,
+) -> list[tuple[int, int]]:
+    outside: list[tuple[int, int]] = []
+    radius_cells = radius_m / pixel_ground_m
+    for cell in route:
+        if math.hypot(cell[0] - source[0], cell[1] - source[1]) <= radius_cells:
+            break
+        outside.append(cell)
+    if len(outside) >= 2:
+        return outside
+    return route[: max(2, min(len(route), 2))]
+
+
+def route_agreement_score(
+    left: list[tuple[int, int]],
+    right: list[tuple[int, int]],
+    shape_: tuple[int, int],
+    pixel_ground_m: float,
+) -> int:
+    if not left or not right:
+        return 0
+
+    def mean_distance(source: list[tuple[int, int]], target: list[tuple[int, int]]) -> float:
+        target_mask = np.zeros(shape_, dtype=bool)
+        target_rows, target_columns = zip(*target)
+        target_mask[np.array(target_rows), np.array(target_columns)] = True
+        distances = distance_transform_edt(~target_mask) * pixel_ground_m
+        source_rows, source_columns = zip(*source)
+        return float(np.mean(distances[np.array(source_rows), np.array(source_columns)]))
+
+    separation = 0.5 * (mean_distance(left, right) + mean_distance(right, left))
+    return int(round(100 * math.exp(-separation / 240)))
+
+
+def corridor_route_ensemble(
+    security: tuple[int, int],
+    source: tuple[int, int],
+    night_cost: np.ndarray,
+    dawn_cost: np.ndarray,
+    pixel_ground_m: float,
+    *,
+    seed: int,
+) -> tuple[list[tuple[int, int]], list[list[tuple[int, int]]], int]:
+    """Build deterministic night/dawn and perturbed near-optimal route hypotheses."""
+    rows, columns = np.ogrid[: night_cost.shape[0], : night_cost.shape[1]]
+    source_buffer = (
+        np.square(rows - source[0]) + np.square(columns - source[1])
+        <= (SOURCE_CAUTION_RADIUS_M / pixel_ground_m) ** 2
+    )
+    night_routing = night_cost.copy()
+    dawn_routing = dawn_cost.copy()
+    night_routing[source_buffer] = np.minimum(night_routing[source_buffer], 0.12)
+    dawn_routing[source_buffer] = np.minimum(dawn_routing[source_buffer], 0.12)
+
+    night_full = route_between(security, source, night_routing, pixel_ground_m)
+    dawn_full = route_between(security, source, dawn_routing, pixel_ground_m)
+    night = trim_route_to_source_buffer(
+        night_full,
+        source,
+        pixel_ground_m,
+        SOURCE_CAUTION_RADIUS_M,
+    )
+    dawn = trim_route_to_source_buffer(
+        dawn_full,
+        source,
+        pixel_ground_m,
+        SOURCE_CAUTION_RADIUS_M,
+    )
+    agreement = route_agreement_score(night, dawn, night_cost.shape, pixel_ground_m)
+
+    consensus = 0.45 * night_routing + 0.55 * dawn_routing
+    representative = min(
+        (night, dawn),
+        key=lambda route: route_cost(route, consensus, pixel_ground_m),
+    )
+    routes: list[list[tuple[int, int]]] = [night, dawn]
+    rng = np.random.default_rng(seed)
+    attempts = max(0, CORRIDOR_ENSEMBLE_MEMBERS - len(routes))
+    for index in range(attempts):
+        base = night_routing if index % 2 == 0 else dawn_routing
+        noise = gaussian_filter(
+            rng.normal(0, 1, size=base.shape).astype(np.float32),
+            sigma=max(1.0, 150 / pixel_ground_m),
+        )
+        standard_deviation = float(np.std(noise))
+        if standard_deviation > 0:
+            noise /= standard_deviation
+        perturbed = np.clip(base * np.exp(0.09 * noise), 0.05, 1_000_000)
+        full_route = route_between(security, source, perturbed, pixel_ground_m)
+        route = trim_route_to_source_buffer(
+            full_route,
+            source,
+            pixel_ground_m,
+            SOURCE_CAUTION_RADIUS_M,
+        )
+        if len(route) < 2:
+            continue
+        if tuple(route) not in {tuple(existing) for existing in routes}:
+            routes.append(route)
+    return representative, routes, agreement
 
 
 def load_human_food_sources(
@@ -1244,14 +1600,23 @@ def conflict_linked_source_clusters(
     sources: list[dict[str, Any]],
     conflict_geometry: Any,
     hunt_geometry: Any,
-    forward: Transformer,
+    measurement_forward: Transformer,
 ) -> list[dict[str, Any]]:
-    conflict_projected = transform_geometry(forward.transform, conflict_geometry)
-    hunt_projected = transform_geometry(forward.transform, hunt_geometry)
+    # Use the CONUS Albers equal-area projection for true-meter proximity and
+    # spacing checks. Web Mercator is retained for raster export only; treating
+    # its map units as ground meters would inflate Colorado distances by ~30%.
+    conflict_projected = transform_geometry(
+        measurement_forward.transform,
+        conflict_geometry,
+    )
+    hunt_projected = transform_geometry(
+        measurement_forward.transform,
+        hunt_geometry,
+    )
     candidates: list[dict[str, Any]] = []
     for source in sources:
         point = source["point"]
-        projected = Point(*forward.transform(point.x, point.y))
+        projected = Point(*measurement_forward.transform(point.x, point.y))
         if not hunt_projected.buffer(200).contains(projected):
             continue
         conflict_distance_m = float(projected.distance(conflict_projected))
@@ -1329,13 +1694,16 @@ def choose_security_cells(
     pixel_ground_m: float,
     *,
     maximum_options: int = 5,
+    minimum_score: float = 0.43,
+    minimum_distance_m: float = 1_600,
+    maximum_distance_m: float = 5_200,
 ) -> list[tuple[int, int]]:
     if not candidate_cells.size:
         return []
     row, column = source_cell
     offsets = candidate_cells - np.array((row, column))
     distances = np.hypot(offsets[:, 0], offsets[:, 1]) * pixel_ground_m
-    nearby = (distances >= 1_600) & (distances <= 5_200)
+    nearby = (distances >= minimum_distance_m) & (distances <= maximum_distance_m)
     local_cells = candidate_cells[nearby]
     local_distances = distances[nearby]
     if not local_cells.size:
@@ -1348,7 +1716,7 @@ def choose_security_cells(
     for index in order:
         candidate = (int(local_cells[index, 0]), int(local_cells[index, 1]))
         candidate_score = float(security_score[candidate])
-        if candidate_score < 0.43:
+        if candidate_score < minimum_score:
             continue
         if any(
             math.hypot(candidate[0] - other[0], candidate[1] - other[1])
@@ -1488,6 +1856,53 @@ def route_geometry(
     if len(coordinates) == 1:
         coordinates.append(coordinates[0])
     return LineString(coordinates)
+
+
+def route_line_projected(
+    transform: rasterio.Affine,
+    route: list[tuple[int, int]],
+) -> LineString:
+    coordinates = [xy(transform, row, column) for row, column in route]
+    if len(coordinates) == 1:
+        coordinates.append(coordinates[0])
+    return LineString(coordinates)
+
+
+def corridor_band_geometry(
+    transform: rasterio.Affine,
+    inverse_transformer: Transformer,
+    routes: list[list[tuple[int, int]]],
+    pixel_ground_m: float,
+) -> Any:
+    map_units_per_ground_m = abs(transform.a) / pixel_ground_m
+    route_buffers = [
+        route_line_projected(transform, route).buffer(48 * map_units_per_ground_m)
+        for route in routes
+        if len(route) >= 2
+    ]
+    if not route_buffers:
+        return Point(0, 0).buffer(0)
+    projected = unary_union(route_buffers).buffer(0).simplify(
+        8 * map_units_per_ground_m,
+        preserve_topology=True,
+    )
+    return transform_geometry(inverse_transformer.transform, projected)
+
+
+def source_caution_geometry(
+    source_point: Point,
+    forward: Transformer,
+    inverse: Transformer,
+    pixel_map_m: float,
+    pixel_ground_m: float,
+) -> Any:
+    x_coord, y_coord = forward.transform(source_point.x, source_point.y)
+    map_units_per_ground_m = pixel_map_m / pixel_ground_m
+    projected = Point(x_coord, y_coord).buffer(
+        SOURCE_CAUTION_RADIUS_M * map_units_per_ground_m,
+        resolution=48,
+    )
+    return transform_geometry(inverse.transform, projected)
 
 
 def component_polygon(
@@ -1648,6 +2063,312 @@ def write_human_food_gpx(
     OUTPUT_GPX.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def proximity_score(
+    feature_mask: np.ndarray,
+    pixel_ground_m: float,
+    decay_m: float,
+) -> np.ndarray:
+    if not np.any(feature_mask):
+        return np.zeros(feature_mask.shape, dtype=np.float32)
+    distance = distance_transform_edt(~feature_mask) * pixel_ground_m
+    return np.exp(-distance / decay_m).astype(np.float32)
+
+
+def build_local_human_refinement(
+    session: requests.Session,
+    temporary: Path,
+    tile_id: str,
+    source_point: Point,
+    units_collection: dict[str, Any],
+    global_transform: rasterio.Affine,
+    global_public_mask: np.ndarray,
+    evt_table: dict[int, dict[str, str]],
+    forward: Transformer,
+    inverse: Transformer,
+) -> tuple[dict[str, Any], list[str]]:
+    """Build a 30 m movement tile around one selected human-food source."""
+    latitude_scale = max(0.55, math.cos(math.radians(source_point.y)))
+    pixel_map_m = FINE_GROUND_RESOLUTION_M / latitude_scale
+    radius_map_m = FINE_TILE_RADIUS_M / latitude_scale
+    center_x, center_y = forward.transform(source_point.x, source_point.y)
+    width = math.ceil(2 * radius_map_m / pixel_map_m)
+    height = width
+    bounds = (
+        center_x - width * pixel_map_m / 2,
+        center_y - height * pixel_map_m / 2,
+        center_x + width * pixel_map_m / 2,
+        center_y + height * pixel_map_m / 2,
+    )
+    transform = from_origin(bounds[0], bounds[3], pixel_map_m, pixel_map_m)
+    shape_ = (height, width)
+    west, south = inverse.transform(bounds[0], bounds[1])
+    east, north = inverse.transform(bounds[2], bounds[3])
+    bbox = (west, south, east, north)
+
+    log(
+        f"  Refining {tile_id} on {width} × {height} cells "
+        f"at {FINE_GROUND_RESOLUTION_M:.0f} m"
+    )
+    elevation = export_image(
+        session,
+        USGS_3DEP,
+        temporary / f"{tile_id}-elevation.tif",
+        bounds,
+        width,
+        height,
+        pixel_type="F32",
+        interpolation="RSP_BilinearInterpolation",
+    ).astype(np.float32)
+    evt = export_image(
+        session,
+        f"{LANDFIRE_ROOT}/LF2025_EVT_CONUS/ImageServer",
+        temporary / f"{tile_id}-evt.tif",
+        bounds,
+        width,
+        height,
+        pixel_type="S16",
+    ).astype(np.int16)
+    evc = export_image(
+        session,
+        f"{LANDFIRE_ROOT}/LF2025_EVC_CONUS/ImageServer",
+        temporary / f"{tile_id}-evc.tif",
+        bounds,
+        width,
+        height,
+        pixel_type="S16",
+    ).astype(np.int16)
+    _, cover, _, developed, _ = landfire_scores(evt, evc, evt_table)
+    habitat, landfire_water = landfire_behavior_scores(evt, evt_table)
+
+    hunt_mask = rasterize_collection(
+        units_collection,
+        transform,
+        shape_,
+        projector=forward,
+        value=1,
+    ).astype(bool)
+    gmu_entries = [
+        (
+            mapping(transform_geometry(forward.transform, shape(feature["geometry"]))),
+            int(feature["properties"]["GMUID"]),
+        )
+        for feature in units_collection.get("features", [])
+    ]
+    gmu_raster = rasterize(
+        gmu_entries,
+        out_shape=shape_,
+        transform=transform,
+        fill=0,
+        dtype="uint16",
+        all_touched=True,
+    )
+    public_mask = resample_mask(
+        global_public_mask,
+        global_transform,
+        transform,
+        shape_,
+    )
+
+    slope, aspect, draw, bench, northeast = terrain_scores(
+        elevation,
+        hunt_mask,
+        FINE_GROUND_RESOLUTION_M,
+    )
+    ruggedness, ridge, saddle = fine_terrain_scores(
+        elevation,
+        hunt_mask,
+        FINE_GROUND_RESOLUTION_M,
+    )
+    movement_masks, warnings = load_local_movement_masks(
+        session,
+        bbox,
+        transform,
+        shape_,
+        forward,
+    )
+    water = landfire_water | movement_masks["waterbody"]
+
+    drainage = np.maximum(
+        0.72 * proximity_score(
+            movement_masks["drainage"],
+            FINE_GROUND_RESOLUTION_M,
+            170,
+        ),
+        proximity_score(
+            movement_masks["perennial"],
+            FINE_GROUND_RESOLUTION_M,
+            240,
+        ),
+    )
+    primary_road = proximity_score(
+        movement_masks["primaryRoad"],
+        FINE_GROUND_RESOLUTION_M,
+        180,
+    )
+    secondary_road = proximity_score(
+        movement_masks["secondaryRoad"],
+        FINE_GROUND_RESOLUTION_M,
+        125,
+    )
+    local_road = proximity_score(
+        movement_masks["localRoad"],
+        FINE_GROUND_RESOLUTION_M,
+        75,
+    )
+    trail = proximity_score(
+        movement_masks["trail"],
+        FINE_GROUND_RESOLUTION_M,
+        135,
+    )
+    development = gaussian_filter(
+        developed.astype(np.float32),
+        sigma=max(1.0, 420 / FINE_GROUND_RESOLUTION_M),
+    )
+    if np.max(development) > 0:
+        development /= float(np.max(development))
+    cover_continuity = gaussian_filter(
+        cover,
+        sigma=max(1.0, 75 / FINE_GROUND_RESOLUTION_M),
+    )
+
+    source_cell = point_cell(transform, source_point, shape_, forward)
+    if source_cell is None:
+        raise BuildWarning(f"{tile_id} source fell outside its refinement tile")
+
+    exertion = (
+        0.08 * np.clip((5 - slope) / 5, 0, 1)
+        + np.square(np.clip((slope - 24) / 22, 0, 1.7))
+    )
+    cover_gap = 1 - np.clip(cover_continuity, 0, 1)
+    common_refuge = (
+        -0.34 * drainage
+        - 0.25 * draw
+        - 0.18 * bench
+        - 0.2 * saddle
+        - 0.16 * habitat
+        - 0.1 * ruggedness
+        + 0.62 * ridge
+        + 0.5 * exertion
+    )
+    night_cost = np.clip(
+        0.95
+        + 1.02 * cover_gap
+        + common_refuge
+        + 0.3 * trail
+        + 0.28 * local_road
+        + 1.7 * secondary_road
+        + 4.8 * primary_road
+        + 0.35 * development,
+        0.08,
+        30,
+    )
+    dawn_cost = np.clip(
+        1.0
+        + 1.4 * cover_gap
+        + common_refuge
+        - 0.1 * drainage
+        - 0.08 * ruggedness
+        + 0.95 * trail
+        + 0.72 * local_road
+        + 2.2 * secondary_road
+        + 5.4 * primary_road
+        + 1.05 * development,
+        0.08,
+        30,
+    )
+    cliff = slope >= 50
+    for cost in (night_cost, dawn_cost):
+        cost[water] = np.maximum(cost[water], 18)
+        cost[cliff] = np.maximum(cost[cliff], 24)
+        cost[~hunt_mask] = 1_000_000
+
+    security_score = np.clip(
+        0.36 * cover_continuity
+        + 0.14 * habitat
+        + 0.14 * ruggedness
+        + 0.12 * draw
+        + 0.08 * bench
+        + 0.06 * saddle
+        + 0.04 * northeast
+        - 0.1 * trail
+        - 0.07 * local_road
+        - 0.12 * secondary_road
+        - 0.18 * primary_road
+        - 0.1 * development,
+        0,
+        1,
+    )
+    security_eligible = (
+        hunt_mask
+        & public_mask
+        & ~water
+        & ~cliff
+        & ~developed
+        & (cover_continuity >= 0.3)
+        & (slope >= 4)
+        & (slope <= 42)
+        & (security_score >= 0.32)
+    )
+    maxima_window = max(7, round(700 / FINE_GROUND_RESOLUTION_M))
+    security_maxima = (
+        security_score
+        == maximum_filter(security_score, size=maxima_window, mode="nearest")
+    ) & security_eligible
+    candidates = np.argwhere(security_maxima)
+    security_cells = choose_security_cells(
+        source_cell,
+        candidates,
+        security_score,
+        FINE_GROUND_RESOLUTION_M,
+        minimum_score=0.32,
+    )
+
+    road_exposure = np.clip(
+        0.62 * primary_road + 0.28 * secondary_road + 0.1 * local_road,
+        0,
+        1,
+    )
+    pressure = np.clip(
+        0.38 * trail
+        + 0.18 * local_road
+        + 0.2 * secondary_road
+        + 0.14 * primary_road
+        + 0.1 * development,
+        0,
+        1,
+    )
+    return (
+        {
+            "transform": transform,
+            "pixelGroundM": FINE_GROUND_RESOLUTION_M,
+            "pixelMapM": pixel_map_m,
+            "forward": forward,
+            "inverse": inverse,
+            "sourceCell": source_cell,
+            "huntMask": hunt_mask,
+            "gmu": gmu_raster,
+            "public": public_mask,
+            "elevation": elevation,
+            "slope": slope,
+            "cover": cover_continuity,
+            "habitat": habitat,
+            "draw": draw,
+            "bench": bench,
+            "ruggedness": ruggedness,
+            "saddle": saddle,
+            "ridge": ridge,
+            "drainage": drainage,
+            "roadExposure": road_exposure,
+            "pressure": pressure,
+            "securityScore": security_score,
+            "securityCells": security_cells,
+            "nightCost": night_cost,
+            "dawnCost": dawn_cost,
+        },
+        warnings,
+    )
+
+
 def build_human_food_analysis(
     session: requests.Session,
     as_of: date,
@@ -1664,6 +2385,7 @@ def build_human_food_analysis(
     elevation: np.ndarray,
     cover: np.ndarray,
     developed: np.ndarray,
+    evt_table: dict[int, dict[str, str]],
     slope: np.ndarray,
     aspect: np.ndarray,
     draw: np.ndarray,
@@ -1711,11 +2433,16 @@ def build_human_food_analysis(
         gnis_names,
     )
     all_sources = inventory_sources + habitation
+    measurement_forward = Transformer.from_crs(
+        "EPSG:4326",
+        "EPSG:5070",
+        always_xy=True,
+    )
     clusters = conflict_linked_source_clusters(
         all_sources,
         conflict_geometry,
         hunt_geometry,
-        forward,
+        measurement_forward,
     )
     if not clusters:
         raise BuildWarning("No mapped campsite or habitation source was linked to conflict habitat")
@@ -1767,17 +2494,63 @@ def build_human_food_analysis(
     if not selected_sources:
         raise BuildWarning("No conflict-linked source had two nearby public-land security options")
 
-    travel_cost = np.clip(
-        1.2
-        + np.square(np.clip((slope - 16) / 18, -0.5, 1.8))
-        + 1.35 * (1 - cover)
-        - 0.46 * draw
-        - 0.28 * bench
-        + 2.4 * trail_penalty,
-        0.08,
-        8,
-    )
-    travel_cost[~hunt_mask] = 100
+    log("Refining selected sources with 30 m behavior-aware movement tiles")
+    refined_sources: list[dict[str, Any]] = []
+    for source_index, source in enumerate(selected_sources, start=1):
+        try:
+            refinement, refinement_warnings = build_local_human_refinement(
+                session,
+                temporary,
+                f"human-{source_index:02d}",
+                source["point"],
+                units_collection,
+                transform,
+                public_mask,
+                evt_table,
+                forward,
+                inverse,
+            )
+            warnings.extend(refinement_warnings)
+        except Exception as error:
+            warnings.append(
+                f"30 m refinement unavailable for {source['name']}: {error}"
+            )
+            continue
+        security_cells = refinement["securityCells"]
+        if len(security_cells) < 2:
+            warnings.append(
+                f"30 m refinement found fewer than two security areas for {source['name']}"
+            )
+            continue
+        security_quality = float(
+            np.mean(
+                [refinement["securityScore"][cell] for cell in security_cells]
+            )
+        )
+        cluster_bonus = min(math.log1p(source["sourceCount"]) / math.log(6), 1)
+        priority = (
+            0.68 * source["conflictScore"]
+            + 0.17 * source["strength"]
+            + 0.10 * security_quality
+            + 0.05 * cluster_bonus
+        )
+        refined_sources.append(
+            {
+                **source,
+                "priority": priority,
+                "refinement": refinement,
+                "securityCells": security_cells,
+            }
+        )
+    if len(refined_sources) < 4:
+        raise BuildWarning(
+            "Fewer than four conflict-linked sources survived 30 m refinement"
+        )
+    selected_sources = sorted(
+        refined_sources,
+        key=lambda source: source["priority"],
+        reverse=True,
+    )[:8]
 
     features: list[dict[str, Any]] = []
     source_features: list[dict[str, Any]] = []
@@ -1810,7 +2583,11 @@ def build_human_food_analysis(
     for rank, source in enumerate(selected_sources, start=1):
         target_id = f"target-{rank}"
         source_point = source["point"]
-        source_cell = source["cell"]
+        refinement = source["refinement"]
+        fine_transform = refinement["transform"]
+        fine_inverse = refinement["inverse"]
+        fine_pixel_ground_m = float(refinement["pixelGroundM"])
+        source_cell = refinement["sourceCell"]
         conflict_distance_m = float(source["conflictDistanceM"])
         conflict_distance_miles = conflict_distance_m / 1_609.344
         relative_score = int(round(np.clip(55 + 44 * source["priority"], 60, 99)))
@@ -1825,8 +2602,8 @@ def build_human_food_analysis(
         )
         summary = (
             f"Human-food priority {relative_score}/100 with {len(security_cells)} "
-            "modeled public-land security options. The source is context only; "
-            "verify fresh sign, legal access, and a safe setup away from development."
+            "30 m public-land security options and night/dawn corridor ensembles. "
+            "Routes stop at a half-mile caution radius; verify fresh sign and legal access."
         )
         target_properties = {
             "kind": "target",
@@ -1852,7 +2629,10 @@ def build_human_food_analysis(
                 if source["sourceCount"] > 1
                 else f"mapped {source['category'].lower()} supplies the human-food hypothesis"
             ),
-            "reason3": f"{len(security_cells)} distinct federal-land security areas are nearby",
+            "reason3": (
+                f"{len(security_cells)} distinct federal-land security areas survived "
+                "30 m terrain and disturbance refinement"
+            ),
             "caveat1": "historical conflict mapping is not a current bear report",
             "caveat2": "do not hunt at or shoot toward campsites, homes, roads, or occupied areas",
             "summary": summary,
@@ -1863,27 +2643,68 @@ def build_human_food_analysis(
         source_feature = as_feature(source_point, target_properties)
         source_features.append(source_feature)
         features.append(source_feature)
+        features.append(
+            as_feature(
+                source_caution_geometry(
+                    source_point,
+                    refinement["forward"],
+                    fine_inverse,
+                    float(refinement["pixelMapM"]),
+                    fine_pixel_ground_m,
+                ),
+                {
+                    "kind": "source-buffer",
+                    "targetId": target_id,
+                    "sourceName": source["name"],
+                    "radiusMiles": round(SOURCE_CAUTION_RADIUS_M / 1_609.344, 2),
+                    "meaning": (
+                        "Analysis caution radius; routes stop here. "
+                        "This is not a statutory hunting boundary."
+                    ),
+                },
+            )
+        )
 
         for option_index, security_cell in enumerate(security_cells, start=1):
             option_label = chr(64 + option_index)
             security_id = f"{target_id}-security-{option_index}"
-            security_point = point_from_cell(transform, inverse, security_cell)
+            security_point = point_from_cell(
+                fine_transform,
+                fine_inverse,
+                security_cell,
+            )
             nearby = nearest_name(gnis_names, security_point.x, security_point.y)
-            nearby_name = nearby["name"] if nearby else f"GMU {int(gmu_raster[security_cell])} cover"
-            route = route_between(source_cell, security_cell, travel_cost)
-            route_to_food = list(reversed(route))
+            nearby_name = (
+                nearby["name"]
+                if nearby
+                else f"GMU {int(refinement['gmu'][security_cell])} cover"
+            )
+            route, ensemble_routes, route_agreement = corridor_route_ensemble(
+                security_cell,
+                source_cell,
+                refinement["nightCost"],
+                refinement["dawnCost"],
+                fine_pixel_ground_m,
+                seed=rank * 100 + option_index,
+            )
             route_rows = np.array([cell[0] for cell in route], dtype=int)
             route_columns = np.array([cell[1] for cell in route], dtype=int)
             direct_distance_m = math.hypot(
                 security_cell[0] - source_cell[0],
                 security_cell[1] - source_cell[1],
-            ) * pixel_ground_m
-            modeled_route_m = route_length_m(route, pixel_ground_m)
+            ) * fine_pixel_ground_m
+            modeled_route_m = route_length_m(route, fine_pixel_ground_m)
+            approach_cell = route[-1]
+            approach_distance_m = math.hypot(
+                approach_cell[0] - source_cell[0],
+                approach_cell[1] - source_cell[1],
+            ) * fine_pixel_ground_m
             option_name = f"H{rank:02d}{option_label} · {nearby_name}"
             option_summary = (
                 f"{direct_distance_m / 1_609.344:.1f} mi from {source['name']}; "
-                f"modeled route {modeled_route_m / 1_609.344:.1f} mi; "
-                f"security score {round(float(security_score[security_cell]) * 100)}/100. "
+                f"representative corridor {modeled_route_m / 1_609.344:.1f} mi to the "
+                f"{approach_distance_m / 1_609.344:.1f} mi caution radius; "
+                f"security score {round(float(refinement['securityScore'][security_cell]) * 100)}/100. "
                 "Verify ownership, closures, current sign, wind, and safe shooting conditions."
             )
             common_properties = {
@@ -1893,27 +2714,56 @@ def build_human_food_analysis(
                 "optionLabel": option_label,
                 "name": option_name,
                 "sourceName": source["name"],
-                "gmu": int(gmu_raster[security_cell]),
-                "securityScore": round(float(security_score[security_cell]) * 100),
-                "cover": round(float(secure[security_cell]) * 100),
-                "routeCover": round(float(np.mean(cover[route_rows, route_columns])) * 100),
-                "pressure": round(float(np.mean(trail_penalty[route_rows, route_columns])) * 100),
+                "gmu": int(refinement["gmu"][security_cell]),
+                "securityScore": round(
+                    float(refinement["securityScore"][security_cell]) * 100
+                ),
+                "cover": round(float(refinement["cover"][security_cell]) * 100),
+                "routeCover": round(
+                    float(np.mean(refinement["cover"][route_rows, route_columns])) * 100
+                ),
+                "routeDrainage": round(
+                    float(np.mean(refinement["drainage"][route_rows, route_columns]))
+                    * 100
+                ),
+                "roadExposure": round(
+                    float(
+                        np.mean(refinement["roadExposure"][route_rows, route_columns])
+                    )
+                    * 100
+                ),
+                "pressure": round(
+                    float(np.mean(refinement["pressure"][route_rows, route_columns]))
+                    * 100
+                ),
+                "publicPercent": round(
+                    float(np.mean(refinement["public"][route_rows, route_columns]))
+                    * 100
+                ),
                 "distanceMiles": round(direct_distance_m / 1_609.344, 2),
                 "routeMiles": round(modeled_route_m / 1_609.344, 2),
-                "elevationFt": round(float(elevation[security_cell]) * 3.28084),
-                "slopeDegrees": round(float(slope[security_cell])),
+                "approachDistanceMiles": round(approach_distance_m / 1_609.344, 2),
+                "sourceBufferMiles": round(SOURCE_CAUTION_RADIUS_M / 1_609.344, 2),
+                "routeAgreement": route_agreement,
+                "ensembleRoutes": len(ensemble_routes),
+                "resolutionM": round(fine_pixel_ground_m),
+                "routeScenario": "night approach plus dawn return",
+                "elevationFt": round(
+                    float(refinement["elevation"][security_cell]) * 3.28084
+                ),
+                "slopeDegrees": round(float(refinement["slope"][security_cell])),
                 "latitude": round(security_point.y, 6),
                 "longitude": round(security_point.x, 6),
                 "summary": option_summary,
                 "verified": False,
             }
             security_polygon = security_area_polygon(
-                security_score,
-                public_mask,
+                refinement["securityScore"],
+                refinement["public"],
                 security_cell,
-                transform,
-                inverse,
-                pixel_ground_m,
+                fine_transform,
+                fine_inverse,
+                fine_pixel_ground_m,
             )
             features.append(
                 as_feature(
@@ -1927,12 +2777,35 @@ def build_human_food_analysis(
             )
             security_features.append(security_feature)
             features.append(security_feature)
+            features.append(
+                as_feature(
+                    corridor_band_geometry(
+                        fine_transform,
+                        fine_inverse,
+                        ensemble_routes,
+                        fine_pixel_ground_m,
+                    ),
+                    {
+                        "kind": "corridor-band",
+                        **common_properties,
+                        "name": f"{option_name} near-optimal corridor band",
+                        "meaning": (
+                            "Envelope of night, dawn, and perturbed near-optimal paths; "
+                            "not an observed animal trail."
+                        ),
+                    },
+                )
+            )
             corridor_feature = as_feature(
-                route_geometry(transform, inverse, route_to_food),
+                route_geometry(fine_transform, fine_inverse, route),
                 {
                     "kind": "corridor",
                     **common_properties,
-                    "name": f"{option_name} → {source['name']}",
+                    "name": f"{option_name} → {source['name']} caution radius",
+                    "meaning": (
+                        "Representative route within the broader uncertainty band; "
+                        "not an observed animal trail."
+                    ),
                 },
             )
             corridor_features.append(corridor_feature)
@@ -1947,21 +2820,87 @@ def build_human_food_analysis(
         "imageryDate": None,
         "droughtUpdated": None,
         "mode": "human-food",
-        "methodVersion": "0.2-human-food-corridors",
+        "methodVersion": "0.3-behavior-corridors",
         "scoreMeaning": (
             "Relative human-food priority led by CPW historical conflict overlap; "
-            "not bear probability or a current sighting."
+            "corridor bands are ensembles of modeled movement hypotheses, not bear "
+            "probability, observed trails, or current sightings."
         ),
         "sourceCount": len(source_features),
         "securityOptionCount": len(security_features),
+        "corridorBandCount": len(corridor_features),
+        "screeningResolutionM": round(pixel_ground_m),
+        "refinementResolutionM": round(FINE_GROUND_RESOLUTION_M),
+        "sourceCautionRadiusMiles": round(
+            SOURCE_CAUTION_RADIUS_M / 1_609.344,
+            2,
+        ),
+        "corridorEnsembleMembers": CORRIDOR_ENSEMBLE_MEMBERS,
+        "corridorScenarios": ["night approach", "dawn return"],
+        "costModel": {
+            "meaning": "Dimensionless relative traversal cost; lower is easier",
+            "commonWeights": {
+                "drainage": -0.34,
+                "draw": -0.25,
+                "bench": -0.18,
+                "saddle": -0.20,
+                "habitat": -0.16,
+                "ruggedness": -0.10,
+                "ridge": 0.62,
+                "slopeExertion": 0.50,
+            },
+            "nightWeights": {
+                "coverGap": 1.02,
+                "trail": 0.30,
+                "localRoad": 0.28,
+                "secondaryRoad": 1.70,
+                "primaryRoad": 4.80,
+                "development": 0.35,
+            },
+            "dawnWeights": {
+                "coverGap": 1.40,
+                "trail": 0.95,
+                "localRoad": 0.72,
+                "secondaryRoad": 2.20,
+                "primaryRoad": 5.40,
+                "development": 1.05,
+                "extraDrainage": -0.10,
+                "extraRuggedness": -0.08,
+            },
+            "barriers": {
+                "mappedWaterMinimumCost": 18,
+                "slopeAtLeast50DegreesMinimumCost": 24,
+                "outsideHuntUnits": "closed",
+            },
+        },
+        "behaviorReferences": [
+            {
+                "title": "Johnson et al. 2015 — dynamic development selection",
+                "url": "https://digitalcommons.unl.edu/icwdm_usdanwrc/1698/",
+            },
+            {
+                "title": "Baruch-Mordo et al. 2014 — natural forage and urban use",
+                "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3885671/",
+            },
+            {
+                "title": "Costello et al. 2013 — covered corridor crossings",
+                "url": (
+                    "https://www.bearbiology.org/download/"
+                    "response-of-american-black-bears-to-the-non-motorized-"
+                    "expansion-of-a-road-corridor-in-grand-teton-national-park/"
+                ),
+            },
+        ],
         "sources": {
             "conflict": SOURCE_LINKS["cpw"],
             "campgrounds": SOURCE_LINKS["campgrounds"],
             "habitation": SOURCE_LINKS["habitation"],
             "landfire": SOURCE_LINKS["landfire"],
             "terrain": SOURCE_LINKS["terrain"],
+            "hydrography": SOURCE_LINKS["hydrography"],
+            "roads": SOURCE_LINKS["roads"],
         },
-        "warnings": warnings,
+        "warnings": list(dict.fromkeys(warnings)),
     }
     collection = {
         "type": "FeatureCollection",
@@ -2161,6 +3100,7 @@ def run(
                 elevation,
                 cover,
                 developed,
+                evt_table,
                 slope,
                 aspect,
                 draw,

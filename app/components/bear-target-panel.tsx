@@ -60,16 +60,16 @@ export default function BearTargetPanel({
     <>
       <section className="target-summary">
         <div>
-          <span className="target-code">BE012O1R · Human-food model</span>
+          <span className="target-code">BE012O1R · 30 m human-food model</span>
           <strong>{targets.length} conflict-linked sources</strong>
-          <small>{securityOptions.length} modeled public-land security options</small>
+          <small>{securityOptions.length} behavior-informed corridor options</small>
         </div>
         <a className="gpx-button" href="/data/be012o1r-targets.gpx" download>
           GPX ↓
         </a>
         <p>
-          Rank the human-food hypothesis first, then inspect two to five routes
-          leading back to security cover. Source markers are context—not setup locations.
+          Compare two to five security areas and their night/dawn route ensembles.
+          Each corridor stops at the half-mile source caution ring.
         </p>
       </section>
 
@@ -125,7 +125,7 @@ export default function BearTargetPanel({
 
                   <section className="security-options" aria-label="Modeled security routes">
                     <div className="security-options-heading">
-                      <strong>Security routes</strong>
+                      <strong>Movement corridors</strong>
                       <span>{options.length} options</span>
                     </div>
                     {options.map((option) => {
@@ -136,10 +136,13 @@ export default function BearTargetPanel({
                           <div className="security-option-copy">
                             <strong>{detail.name.replace(/^H\d{2}[A-E] · /, '')}</strong>
                             <small>
-                              {detail.distanceMiles.toFixed(1)} mi direct · {detail.routeMiles.toFixed(1)} mi route · GMU {detail.gmu}
+                              {detail.distanceMiles.toFixed(1)} mi to source · {detail.routeMiles.toFixed(1)} mi to {detail.sourceBufferMiles.toFixed(1)} mi ring · GMU {detail.gmu}
                             </small>
                             <span>
-                              Security {detail.securityScore} · cover {detail.cover} · pressure {detail.pressure}
+                              Security {detail.securityScore} · cover {detail.routeCover} · drainage {detail.routeDrainage} · road exposure {detail.roadExposure}
+                            </span>
+                            <span>
+                              Night/dawn agreement {detail.routeAgreement}% · {detail.ensembleRoutes} paths · {detail.publicPercent}% federal land along representative line
                             </span>
                           </div>
                           <button
@@ -156,7 +159,8 @@ export default function BearTargetPanel({
 
                   <p className="target-caveat">
                     Context only: {properties.caveat1}. {properties.caveat2}.
-                    Route lines may cross private land and require parcel-level verification.
+                    Corridor bands may cross private land. The caution ring is an
+                    analysis guardrail, not a legal boundary.
                   </p>
                 </div>
               )}
@@ -164,9 +168,55 @@ export default function BearTargetPanel({
           );
         })}
         <p className="target-method-note">
-          CPW conflict polygons are historical area mapping, not incident counts or
-          current sightings. Require current food or fresh sign before committing time.
+          Bands combine night approach, dawn return, and perturbed near-optimal paths
+          on a 30 m grid. They express uncertainty—not observed bear trails.
         </p>
+        <details className="target-method">
+          <summary>Model assumptions &amp; cost function</summary>
+          <div>
+            <p>
+              Lower cost means easier modeled travel. Both scenarios favor drainage
+              <code>−0.34</code>, draws <code>−0.25</code>, saddles <code>−0.20</code>,
+              benches <code>−0.18</code>, and mapped refuge habitat <code>−0.16</code>;
+              they penalize exposed ridges <code>+0.62</code> and slope exertion
+              <code>+0.50</code>.
+            </p>
+            <p>
+              Night applies lighter disturbance costs. Dawn increases the penalties
+              for canopy gaps, trails, roads, and development. Water and 50° slopes
+              are strong barriers. All terms are relative 0–1 surfaces, so the
+              coefficients are comparisons—not probabilities.
+            </p>
+            <p className="target-method-warning">
+              These are transparent, literature-informed weights, not coefficients
+              fitted to local telemetry. Fresh sign and current food still decide
+              whether a band deserves field time.
+            </p>
+            <nav aria-label="Black bear movement evidence">
+              <a
+                href="https://digitalcommons.unl.edu/icwdm_usdanwrc/1698/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Development selection ↗
+              </a>
+              <a
+                href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3885671/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Food-year behavior ↗
+              </a>
+              <a
+                href="https://www.bearbiology.org/download/response-of-american-black-bears-to-the-non-motorized-expansion-of-a-road-corridor-in-grand-teton-national-park/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Covered crossings ↗
+              </a>
+            </nav>
+          </div>
+        </details>
         {warnings.length > 0 && (
           <p className="target-source-warning">
             Build note: {warnings.join('; ')}. CPW, BLM, and SWA source inventories still loaded.

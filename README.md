@@ -38,8 +38,8 @@ npm run check
   bear-human conflict areas.
 - Adds a BE012O1R human-food targeting workspace with eight ranked,
   conflict-linked campsite/habitation sources, two to five nearby federal-land
-  security areas per source, modeled security-to-source travel routes, copyable
-  option coordinates, aerial imagery, and a GPX download.
+  security areas per source, 30-meter security-to-source corridor ensembles,
+  copyable option coordinates, aerial imagery, and a GPX download.
 - Clusters developed camping locations and shows their manager, source vintage,
   capacity/use details when available, and an official source link on click.
 - Saves starred hunt codes in browser storage on the current device.
@@ -71,23 +71,69 @@ uv run \
   python scripts/build-bear-targets.py --as-of 2026-09-02 --mode human-food
 ```
 
-The batch step resolves the nine GMUs in BE012O1R and scores a roughly
-57-meter ground grid. The current human-food mode first links developed
-camping and generalized habitation anchors to CPW historical bear-conflict
-polygons. Conflict overlap/proximity supplies 68% of source priority; mapped
-source strength supplies 17%, nearby security quality 10%, and converging
-source records 5%. Because CPW's polygon layer does not contain incident counts
-or usable event dates, overlap is a strong area prior—not a claim of recent or
-frequent conflict.
+The batch step uses two spatial scales. It first resolves the nine GMUs in
+BE012O1R and screens the entire hunt area on a roughly 57-meter ground grid. The
+human-food mode links developed camping and generalized habitation anchors to
+CPW historical bear-conflict polygons. Conflict overlap/proximity supplies 68%
+of source priority; mapped source strength supplies 17%, nearby security quality
+10%, and converging source records 5%. Because CPW's polygon layer does not
+contain incident counts or usable event dates, overlap is a strong area prior—not
+a claim of recent or frequent conflict.
 
-For each selected source, LANDFIRE canopy, USGS 3DEP slope/aspect/draw/bench
-terrain, COTREX trail pressure, and BLM surface-management geometry identify
-two to five distinct security-cover options roughly one to 3.2 miles away.
-Every endpoint is on mapped BLM, USFS, or Bureau of Reclamation land. A
-least-cost route favors cover, draws, benches, and moderate slopes while
-penalizing mapped trail proximity. Routes model animal movement and may cross
-private land; every endpoint, route, and source must be field- and parcel-
-verified.
+Each selected source is then rebuilt on its own 14.4 × 14.4 km tile at 30-meter
+ground spacing. LANDFIRE 2025 vegetation and canopy, USGS 3DEP terrain, USGS
+National Hydrography flowlines and waterbodies, Census TIGER roads, COTREX
+trails, and federal surface-management geometry identify two to five distinct
+security-cover options 1–3.2 miles from the source. Every endpoint is gated to
+mapped BLM, USFS, or Bureau of Reclamation land. Ownership boundaries are still
+generalized and must be parcel-verified.
+
+### Movement cost and corridor uncertainty
+
+Movement is solved separately for a night approach and a dawn return. All soft
+inputs are normalized to 0–1 and lower cost means easier modeled travel. The
+shared part of the dimensionless cell cost is:
+
+```text
+-0.34 drainage -0.25 draw -0.18 bench -0.20 saddle
+-0.16 habitat  -0.10 rugged cover
++0.62 exposed ridge +0.50 slope exertion
+```
+
+Night adds `+1.02 cover gap`, `+0.30 trail`, `+0.28 local road`, `+1.70
+secondary road`, `+4.80 primary road`, and `+0.35 development`. Dawn raises
+cover-gap and human-disturbance costs (`+1.40`, `+0.95`, `+0.72`, `+2.20`,
+`+5.40`, and `+1.05`, respectively) and gives modest extra credit to drainage
+and rugged cover. Road and trail terms are distance-decay surfaces, not claims
+that a bear cannot cross them. Mapped water and slopes of at least 50 degrees
+receive strong barrier costs; cells outside the hunt units are closed.
+
+For each security option, the builder solves the night and dawn paths plus
+deterministically perturbed near-optimal paths. The map displays their buffered
+union as a corridor band and one representative centerline for GPX export. A
+wide band or low night/dawn agreement means the inputs do not identify one
+stable route. Every route stops at a 0.5-mile source caution ring. That ring is
+an analysis guardrail, not a legal setback.
+
+The cost coefficients are transparent, literature-informed hypotheses—not a
+resource- or step-selection model fitted to local bear telemetry. Colorado GPS
+work found that selection for development changes with natural-food conditions
+and that bears become more nocturnal and use denser human development in poor
+food years. A Grand Teton GPS study found more use of steep terrain and areas
+farther from a recreation corridor, with covered crossing locations and more
+morning/evening/night activity near people. Those findings justify separate
+night/dawn surfaces, cover continuity, terrain refuge, and differentiated road
+costs; they do not validate any individual line on this map.
+
+- [Johnson et al. 2015: dynamic selection for human development](https://digitalcommons.unl.edu/icwdm_usdanwrc/1698/)
+- [Baruch-Mordo et al. 2014: natural forage and urban use in Aspen](https://pmc.ncbi.nlm.nih.gov/articles/PMC3885671/)
+- [Costello et al. 2013: response to a recreation/road corridor](https://www.bearbiology.org/download/response-of-american-black-bears-to-the-non-motorized-expansion-of-a-road-corridor-in-grand-teton-national-park/)
+
+The model does not include live bear locations, fresh sign, food availability,
+traffic volume, temporary closures, fences, culverts, wildfire blowdown, or a
+verified legal shooting position. Routes can cross private land. Treat each
+band as a shortlist for aerial review and field verification, not a predicted
+animal trail.
 
 The earlier vegetation-led analysis remains available to the builder with
 `--mode natural-food`; extending it to the same multi-security-route structure
@@ -107,6 +153,9 @@ natural-food pipeline offline.
 - [BLM recreation facilities](https://gis.blm.gov/arcgis/rest/services/recreation/BLM_Natl_Recreation_Sites_Facilities/MapServer/8)
 - [USGS 3DEP elevation](https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer)
 - [LANDFIRE 2025 vegetation](https://landfire.gov/data/lf2025)
+- [USGS National Hydrography Dataset](https://www.usgs.gov/national-hydrography/nhdplus-high-resolution)
+- [Census TIGERweb transportation](https://tigerweb.geo.census.gov/tigerweb/)
+- [Colorado Trail Explorer trails](https://trails.colorado.gov/)
 - [Sentinel-2 Level-2A public COGs](https://registry.opendata.aws/sentinel-2-l2a-cogs/)
 - [USGS Geographic Names Information System](https://www.usgs.gov/tools/geographic-names-information-system-gnis)
 - [BLM Surface Management Agency](https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_LimitedScale/MapServer)

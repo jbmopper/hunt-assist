@@ -5,6 +5,10 @@ export const BEAR_TARGET_LAYER_IDS = [
   'bear-hunt-area-fill',
   'bear-analysis-conflict-fill',
   'bear-analysis-conflict-outline',
+  'bear-source-buffer-fill',
+  'bear-source-buffer-outline',
+  'bear-corridor-bands',
+  'bear-corridor-band-outlines',
   'bear-security-areas',
   'bear-security-area-outlines',
   'bear-corridors',
@@ -20,6 +24,7 @@ export const BEAR_TARGET_INTERACTIVE_LAYERS = [
   'bear-source-points',
   'bear-security-points',
   'bear-security-areas',
+  'bear-corridor-bands',
 ] as const;
 
 export function addOrUpdateBearTargetLayers(
@@ -74,6 +79,53 @@ export function addOrUpdateBearTargetLayers(
     },
   });
   map.addLayer({
+    id: 'bear-source-buffer-fill',
+    type: 'fill',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'source-buffer'],
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-color': '#d76542',
+      'fill-opacity': 0.08,
+    },
+  });
+  map.addLayer({
+    id: 'bear-source-buffer-outline',
+    type: 'line',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'source-buffer'],
+    layout: { visibility: 'none' },
+    paint: {
+      'line-color': '#f1a36e',
+      'line-dasharray': [1.2, 1.4],
+      'line-opacity': 0.8,
+      'line-width': 1.5,
+    },
+  });
+  map.addLayer({
+    id: 'bear-corridor-bands',
+    type: 'fill',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'corridor-band'],
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-color': '#4fd0aa',
+      'fill-opacity': 0.16,
+    },
+  });
+  map.addLayer({
+    id: 'bear-corridor-band-outlines',
+    type: 'line',
+    source: 'bear-target-analysis',
+    filter: ['==', ['get', 'kind'], 'corridor-band'],
+    layout: { visibility: 'none' },
+    paint: {
+      'line-color': '#87efd0',
+      'line-opacity': 0.38,
+      'line-width': 1,
+    },
+  });
+  map.addLayer({
     id: 'bear-security-areas',
     type: 'fill',
     source: 'bear-target-analysis',
@@ -108,16 +160,16 @@ export function addOrUpdateBearTargetLayers(
     },
     paint: {
       'line-color': '#83e3c2',
-      'line-dasharray': [2, 1.4],
-      'line-opacity': 0.68,
+      'line-dasharray': [1.5, 1.6],
+      'line-opacity': 0.76,
       'line-width': [
         'interpolate',
         ['linear'],
         ['zoom'],
         7,
-        1.6,
+        1.2,
         13,
-        3.8,
+        2.4,
       ],
     },
   });
@@ -248,5 +300,29 @@ export function setBearTargetSelection(
     selected,
     1,
     0.14,
+  ]);
+  map.setPaintProperty('bear-corridor-bands', 'fill-opacity', [
+    'case',
+    selected,
+    0.26,
+    0.035,
+  ]);
+  map.setPaintProperty('bear-corridor-band-outlines', 'line-opacity', [
+    'case',
+    selected,
+    0.58,
+    0.08,
+  ]);
+  map.setPaintProperty('bear-source-buffer-fill', 'fill-opacity', [
+    'case',
+    selected,
+    0.12,
+    0.025,
+  ]);
+  map.setPaintProperty('bear-source-buffer-outline', 'line-opacity', [
+    'case',
+    selected,
+    0.95,
+    0.16,
   ]);
 }

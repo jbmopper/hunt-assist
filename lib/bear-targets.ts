@@ -41,9 +41,18 @@ export type BearSecurityProperties = {
   securityScore: number;
   cover: number;
   routeCover: number;
+  routeDrainage: number;
+  roadExposure: number;
   pressure: number;
+  publicPercent: number;
   distanceMiles: number;
   routeMiles: number;
+  approachDistanceMiles: number;
+  sourceBufferMiles: number;
+  routeAgreement: number;
+  ensembleRoutes: number;
+  resolutionM: number;
+  routeScenario: string;
   elevationFt: number;
   slopeDegrees: number;
   latitude: number;
@@ -55,10 +64,12 @@ export type BearSecurityProperties = {
 export type BearAnalysisProperties = Record<string, unknown> & {
   kind:
     | 'corridor'
+    | 'corridor-band'
     | 'human-conflict'
     | 'hunt-boundary'
     | 'security'
     | 'security-area'
+    | 'source-buffer'
     | 'target';
   targetId?: string;
 };
@@ -83,6 +94,23 @@ export type BearTargetCollection = FeatureCollection<
     scoreMeaning: string;
     sourceCount: number;
     securityOptionCount: number;
+    corridorBandCount: number;
+    screeningResolutionM: number;
+    refinementResolutionM: number;
+    sourceCautionRadiusMiles: number;
+    corridorEnsembleMembers: number;
+    corridorScenarios: string[];
+    costModel: {
+      meaning: string;
+      commonWeights: Record<string, number>;
+      nightWeights: Record<string, number>;
+      dawnWeights: Record<string, number>;
+      barriers: Record<string, number | string>;
+    };
+    behaviorReferences: Array<{
+      title: string;
+      url: string;
+    }>;
     sources: Record<string, string>;
     warnings: string[];
   };

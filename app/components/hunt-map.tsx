@@ -503,7 +503,7 @@ export default function HuntMap({
             </strong>
             <span>
               {analysisMode
-                ? 'Red is a mapped human-food source—never a setup location. Green marks modeled public-land security cover; mint lines lead from that cover toward the source.'
+                ? 'Red marks a human-food source—never a setup location. Mint bands combine multiple night/dawn paths from green security cover and stop at the orange caution ring.'
                 : proxySummary}
             </span>
           </aside>
@@ -514,7 +514,8 @@ export default function HuntMap({
               <span><i className="legend-conflict" /> CPW historical conflict</span>
               <span><i className="legend-target" /> Human-food context</span>
               <span><i className="legend-security" /> Security option</span>
-              <span><i className="legend-corridor" /> Security → source route</span>
+              <span><i className="legend-corridor" /> Near-optimal corridor band</span>
+              <span><i className="legend-source-buffer" /> 0.5 mi caution ring</span>
             </>
           ) : (
             <>

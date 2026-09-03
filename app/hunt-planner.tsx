@@ -385,7 +385,7 @@ export default function HuntPlanner() {
               }
             />{' '}
             {workspaceMode === 'targets'
-              ? `BE012O1R · ${targetCollection ? 'human-food model' : 'loading model'}`
+              ? `BE012O1R · ${targetCollection ? '30 m corridor model' : 'loading model'}`
               : feedLabel}
           </span>
           {workspaceMode === 'licenses' && (

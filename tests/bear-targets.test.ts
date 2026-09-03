@@ -16,11 +16,21 @@ const securityOptions = getBearSecurityOptions(collection);
 test('ships a human-food BE012O1R target package', () => {
   assert.equal(collection.metadata.huntCode, 'BE012O1R');
   assert.equal(collection.metadata.mode, 'human-food');
-  assert.equal(collection.metadata.methodVersion, '0.2-human-food-corridors');
+  assert.equal(collection.metadata.methodVersion, '0.3-behavior-corridors');
+  assert.equal(collection.metadata.refinementResolutionM, 30);
+  assert.equal(collection.metadata.sourceCautionRadiusMiles, 0.5);
   assert.deepEqual(collection.metadata.units, [12, 13, 23, 24, 25, 26, 33, 131, 231]);
   assert.ok(targets.length >= 4 && targets.length <= 8);
   assert.equal(collection.metadata.sourceCount, targets.length);
   assert.equal(collection.metadata.securityOptionCount, securityOptions.length);
+  assert.equal(collection.metadata.corridorBandCount, securityOptions.length);
+  assert.ok(collection.metadata.sources.hydrography);
+  assert.ok(collection.metadata.sources.roads);
+  assert.match(collection.metadata.costModel.meaning, /lower is easier/i);
+  assert.equal(collection.metadata.costModel.commonWeights.drainage, -0.34);
+  assert.equal(collection.metadata.costModel.nightWeights.primaryRoad, 4.8);
+  assert.equal(collection.metadata.costModel.dawnWeights.primaryRoad, 5.4);
+  assert.ok(collection.metadata.behaviorReferences.length >= 3);
   assert.ok(
     collection.features.some(
       (feature) => feature.properties.kind === 'human-conflict',
@@ -62,8 +72,18 @@ test('pairs every source with two to five security areas and routes', () => {
       const properties = option.properties;
       assert.ok(validUnits.has(properties.gmu));
       assert.ok(properties.distanceMiles >= 0.95 && properties.distanceMiles <= 3.3);
-      assert.ok(properties.routeMiles >= properties.distanceMiles);
-      assert.ok(properties.securityScore >= 40 && properties.securityScore <= 100);
+      assert.ok(properties.routeMiles >= 0.2);
+      assert.ok(properties.routeMiles <= properties.distanceMiles + 2);
+      assert.ok(properties.approachDistanceMiles >= 0.49);
+      assert.ok(properties.approachDistanceMiles <= 0.55);
+      assert.equal(properties.sourceBufferMiles, 0.5);
+      assert.equal(properties.resolutionM, 30);
+      assert.ok(properties.ensembleRoutes >= 2 && properties.ensembleRoutes <= 10);
+      assert.ok(properties.routeAgreement >= 0 && properties.routeAgreement <= 100);
+      assert.ok(properties.routeDrainage >= 0 && properties.routeDrainage <= 100);
+      assert.ok(properties.roadExposure >= 0 && properties.roadExposure <= 100);
+      assert.ok(properties.publicPercent >= 0 && properties.publicPercent <= 100);
+      assert.ok(properties.securityScore >= 30 && properties.securityScore <= 100);
       assert.ok(
         collection.features.some(
           (feature) =>
@@ -78,7 +98,21 @@ test('pairs every source with two to five security areas and routes', () => {
             feature.properties.securityId === properties.securityId,
         ),
       );
+      assert.ok(
+        collection.features.some(
+          (feature) =>
+            feature.properties.kind === 'corridor-band' &&
+            feature.properties.securityId === properties.securityId,
+        ),
+      );
     }
+    assert.ok(
+      collection.features.some(
+        (feature) =>
+          feature.properties.kind === 'source-buffer' &&
+          feature.properties.targetId === targetId,
+      ),
+    );
   }
 });
 
