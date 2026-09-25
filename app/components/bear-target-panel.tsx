@@ -5,6 +5,7 @@ import CampPlanning from './camp-planning';
 import type {
   BearCautionMode,
   BearSecurityFeature,
+  BearSourceAreaFeature,
   BearTargetFeature,
 } from '@/lib/bear-targets';
 
@@ -15,6 +16,7 @@ type BearTargetPanelProps = {
   onSelectTarget: (targetId: string) => void;
   securityOptions: BearSecurityFeature[];
   selectedTargetId: string | null;
+  sourceAreas: BearSourceAreaFeature[];
   targets: BearTargetFeature[];
   warnings: string[];
 };
@@ -26,6 +28,7 @@ export default function BearTargetPanel({
   onSelectTarget,
   securityOptions,
   selectedTargetId,
+  sourceAreas,
   targets,
   warnings,
 }: BearTargetPanelProps) {
@@ -175,7 +178,12 @@ export default function BearTargetPanel({
                     </ul>
                   </div>
 
-                  <CampPlanning target={target} />
+                  <CampPlanning
+                    sourceArea={sourceAreas.find(
+                      (area) => area.properties.targetId === target.properties.targetId,
+                    )}
+                    target={target}
+                  />
 
                   <section className="security-options" aria-label="Modeled security routes">
                     <div className="security-options-heading">

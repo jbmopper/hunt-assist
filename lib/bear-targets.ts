@@ -1,4 +1,11 @@
-import type { Feature, FeatureCollection, Geometry, Point } from 'geojson';
+import type {
+  Feature,
+  FeatureCollection,
+  Geometry,
+  MultiPolygon,
+  Point,
+  Polygon,
+} from 'geojson';
 
 export type BearCautionMode =
   | 'rule-screen'
@@ -110,6 +117,10 @@ export type BearAnalysisProperties = Record<string, unknown> & {
 
 export type BearTargetFeature = Feature<Point, BearTargetProperties>;
 export type BearSecurityFeature = Feature<Point, BearSecurityProperties>;
+export type BearSourceAreaFeature = Feature<
+  Polygon | MultiPolygon,
+  BearAnalysisProperties & { kind: 'source-area'; targetId: string }
+>;
 
 export type BearTargetCollection = FeatureCollection<
   Geometry,
@@ -210,6 +221,22 @@ export function getBearTargets(collection: BearTargetCollection | null) {
   return collection.features
     .filter(isBearTargetFeature)
     .sort((left, right) => left.properties.rank - right.properties.rank);
+}
+
+function isBearSourceAreaFeature(
+  feature: Feature<Geometry, BearAnalysisProperties>,
+): feature is BearSourceAreaFeature {
+  return (
+    (feature.geometry.type === 'Polygon' ||
+      feature.geometry.type === 'MultiPolygon') &&
+    feature.properties.kind === 'source-area' &&
+    typeof feature.properties.targetId === 'string'
+  );
+}
+
+export function getBearSourceAreas(collection: BearTargetCollection | null) {
+  if (!collection) return [];
+  return collection.features.filter(isBearSourceAreaFeature);
 }
 
 function isBearSecurityFeature(

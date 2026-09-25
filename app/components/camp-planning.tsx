@@ -2,9 +2,13 @@ import {
   CAMP_PLANNING_RULES,
   getCampPlan,
 } from '@/lib/camp-planning';
-import type { BearTargetFeature } from '@/lib/bear-targets';
+import type {
+  BearSourceAreaFeature,
+  BearTargetFeature,
+} from '@/lib/bear-targets';
 
 type CampPlanningProps = {
+  sourceArea: BearSourceAreaFeature | undefined;
   target: BearTargetFeature;
 };
 
@@ -14,8 +18,8 @@ const FIT_LABELS = {
   'fallback-only': 'Fallback only',
 } as const;
 
-export default function CampPlanning({ target }: CampPlanningProps) {
-  const plan = getCampPlan(target);
+export default function CampPlanning({ sourceArea, target }: CampPlanningProps) {
+  const plan = getCampPlan(target, sourceArea);
   if (!plan) return null;
 
   return (
@@ -43,9 +47,9 @@ export default function CampPlanning({ target }: CampPlanningProps) {
               <span>
                 {candidate.distanceToSourceMiles === null
                   ? 'separation needs a pin'
-                  : candidate.distanceToSourceMiles < 0.05
+                  : candidate.sourceRelationship === 'source-overlap'
                     ? 'overlaps modeled source'
-                    : `${candidate.distanceToSourceMiles.toFixed(1)} mi from source`}
+                    : `${candidate.distanceToSourceMiles.toFixed(1)} mi from source footprint`}
               </span>
             </div>
             <dl>
