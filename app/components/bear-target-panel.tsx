@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import CampPlanning from './camp-planning';
 import type {
   BearCautionMode,
   BearSecurityFeature,
@@ -173,6 +174,8 @@ export default function BearTargetPanel({
                       )}
                     </ul>
                   </div>
+
+                  <CampPlanning target={target} />
 
                   <section className="security-options" aria-label="Modeled security routes">
                     <div className="security-options-heading">

@@ -578,6 +578,9 @@ a {
 .hunt-list {
   display: grid;
   min-height: 0;
+  flex: 1;
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: 8px;
   padding: 0 14px 20px;
   overflow: auto;
@@ -1531,6 +1534,9 @@ a {
 .target-list {
   display: grid;
   min-height: 0;
+  flex: 1;
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: 8px;
   padding: 12px 14px 20px;
   overflow-y: auto;
@@ -1697,6 +1703,187 @@ a {
   color: #435349;
   font-size: 14px;
   line-height: 1.35;
+}
+
+.camp-planning {
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid #cfd9d1;
+  border-radius: 10px;
+  background: #f7faf6;
+}
+
+.camp-planning > p {
+  margin: 0;
+  color: #435349;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.camp-planning-heading,
+.camp-candidate-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.camp-planning-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.camp-planning-heading strong {
+  font-size: 14px;
+}
+
+.camp-planning-heading span {
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+
+.camp-mode-badge {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #dfeadf;
+  color: #315a45 !important;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.camp-candidates {
+  display: grid;
+  gap: 8px;
+}
+
+.camp-candidate {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid #d8dfd9;
+  border-left: 4px solid #c08b42;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.camp-candidate-preferred {
+  border-left-color: #3d805b;
+}
+
+.camp-candidate-fallback-only {
+  border-left-color: #b85a43;
+  background: #fffaf7;
+}
+
+.camp-candidate-topline strong {
+  font-size: 13px;
+}
+
+.camp-candidate-topline > span {
+  color: #735320;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.camp-candidate-fallback-only .camp-candidate-topline > span {
+  color: #97442f;
+}
+
+.camp-candidate-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.camp-candidate-facts span {
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: #edf1ed;
+  color: #4a5c51;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.camp-candidate dl,
+.camp-candidate ul {
+  margin: 0;
+}
+
+.camp-candidate dl {
+  display: grid;
+  gap: 5px;
+}
+
+.camp-candidate dl > div {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 6px;
+}
+
+.camp-candidate dt {
+  color: var(--orange);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.camp-candidate dd,
+.camp-candidate li {
+  margin: 0;
+  color: #48594f;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.camp-candidate ul {
+  display: grid;
+  gap: 2px;
+  padding-left: 16px;
+}
+
+.camp-candidate nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.camp-candidate a,
+.camp-rule-note a {
+  color: var(--pine);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.camp-rule-note {
+  overflow: hidden;
+  border-top: 1px solid #dfe6df;
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.camp-rule-note summary {
+  padding-top: 8px;
+  color: var(--pine);
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.camp-rule-note > div {
+  display: grid;
+  gap: 7px;
+  padding-top: 8px;
+}
+
+.camp-rule-note p {
+  margin: 0;
+  line-height: 1.45;
 }
 
 .source-records {

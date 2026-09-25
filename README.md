@@ -40,6 +40,10 @@ npm run check
   conflict-linked campsite/habitation clusters, multipart attraction footprints,
   two to five nearby federal-land security areas per cluster, 30-meter corridor
   ensembles, copyable option coordinates, aerial imagery, and a GPX download.
+- Adds tent-camp assessments for the Rifle Falls, Trappers Lake, and Chapman
+  trip targets. The check keeps campsite authority, bear-safe food storage,
+  human-food-source separation, and low-clearance/wet-road access as separate
+  decisions; it does not invent a distance-based baiting safe harbor.
 - Clusters developed camping locations and shows their manager, source vintage,
   capacity/use details when available, and an official source link on click.
 - Saves starred hunt codes in browser storage on the current device.
