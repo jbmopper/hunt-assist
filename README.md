@@ -15,6 +15,18 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). No account, API key, or
 environment file is required.
 
+For the self-contained offline field build, install dependencies once while
+online and then use the stable root launcher:
+
+```bash
+npm install
+node server.js
+```
+
+The launcher builds automatically when needed, serves on
+[http://127.0.0.1:4317/#bear-targets](http://127.0.0.1:4317/#bear-targets), and
+uses the bundled topo tiles and saved planning data without a connection.
+
 Run the complete local verification suite with:
 
 ```bash
