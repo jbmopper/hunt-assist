@@ -5,6 +5,7 @@ import BearTargetPanel from './components/bear-target-panel';
 import HuntMap from './components/hunt-map';
 import {
   getBearSecurityOptions,
+  getBearSourceAreas,
   getBearTargets,
   type BearCautionMode,
   type BearTargetCollection,
@@ -119,6 +120,10 @@ export default function HuntPlanner() {
   );
   const bearSecurityOptions = useMemo(
     () => getBearSecurityOptions(targetCollection),
+    [targetCollection],
+  );
+  const bearSourceAreas = useMemo(
+    () => getBearSourceAreas(targetCollection),
     [targetCollection],
   );
 
@@ -757,6 +762,7 @@ export default function HuntPlanner() {
               onSelectTarget={handleSelectTarget}
               securityOptions={bearSecurityOptions}
               selectedTargetId={selectedTargetId}
+              sourceAreas={bearSourceAreas}
               targets={bearTargets}
               warnings={targetCollection?.metadata.warnings ?? []}
             />

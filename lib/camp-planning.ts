@@ -1,8 +1,9 @@
-import type { BearTargetFeature } from './bear-targets';
+import type { Position } from 'geojson';
+import type { BearSourceAreaFeature, BearTargetFeature } from './bear-targets';
 
-export type CampFit = 'preferred' | 'conditional' | 'fallback-only';
+export type CampFit = 'preferred' | 'conditional' | 'fallback-only' | 'ineligible';
 export type CampKind = 'designated' | 'developed' | 'dispersed-corridor';
-export type CampLegalStatus = 'confirmed' | 'conditional' | 'verify';
+export type CampLegalStatus = 'confirmed' | 'conditional' | 'verify' | 'stock-only';
 
 export type CampCandidate = {
   id: string;
@@ -34,6 +35,8 @@ export type TargetCampPlan = {
 };
 
 export const CAMP_SOURCE_CAUTION_MILES = 0.5;
+
+const EARTH_RADIUS_MILES = 3958.8;
 
 export const CAMP_PLANNING_RULES = {
   baiting: {
@@ -126,6 +129,26 @@ const TARGET_CAMP_PLANS: TargetCampPlan[] = [
         },
         bookingUrl: 'https://www.recreation.gov/camping/campgrounds/234795',
       },
+      {
+        id: 'horse-thief-developed',
+        targetId: 'target-2',
+        name: 'Horse Thief horse campground',
+        kind: 'developed',
+        latitude: 39.99584,
+        longitude: -107.237788,
+        legalStatus: 'stock-only',
+        legalBasis:
+          'All seven campsites are set aside for stock users only. This is not an overnight option for a non-stock tent camp.',
+        access:
+          'Same CR 8 / FR 205 approach as the other Trappers Lake campgrounds. Treat mud, rutting, or a deep center crown as a stop condition for a low-clearance car.',
+        wetRoadRisk: 'high',
+        foodStorage:
+          'Use the site bear locker when supplied; otherwise lock attractants, refuse, and any stock feed in the vehicle. Do not leave coolers, feed, or cooking residue exposed.',
+        source: {
+          label: 'Recreation.gov Horse Thief listing',
+          url: 'https://www.recreation.gov/camping/campgrounds/10352163',
+        },
+      },
     ],
   },
   {
@@ -183,7 +206,6 @@ export function distanceMiles(
   first: { latitude: number; longitude: number },
   second: { latitude: number; longitude: number },
 ) {
-  const earthRadiusMiles = 3958.8;
   const latitudeDelta = degreesToRadians(second.latitude - first.latitude);
   const longitudeDelta = degreesToRadians(second.longitude - first.longitude);
   const firstLatitude = degreesToRadians(first.latitude);
@@ -193,35 +215,89 @@ export function distanceMiles(
     Math.cos(firstLatitude) *
       Math.cos(secondLatitude) *
       Math.sin(longitudeDelta / 2) ** 2;
-  return 2 * earthRadiusMiles * Math.asin(Math.sqrt(haversine));
+  return 2 * EARTH_RADIUS_MILES * Math.asin(Math.sqrt(haversine));
+}
+
+function projectMiles(position: Position, origin: { latitude: number; longitude: number }) {
+  const milesPerDegree = (Math.PI / 180) * EARTH_RADIUS_MILES;
+  return [
+    (position[0] - origin.longitude) *
+      milesPerDegree *
+      Math.cos(degreesToRadians(origin.latitude)),
+    (position[1] - origin.latitude) * milesPerDegree,
+  ];
+}
+
+function segmentDistance(ax: number, ay: number, bx: number, by: number) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  const t =
+    lengthSquared === 0
+      ? 0
+      : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / lengthSquared));
+  return Math.hypot(ax + t * dx, ay + t * dy);
+}
+
+// Miles from a point to the nearest edge of a (multi)polygon footprint, or 0
+// when the point is inside it. Rings are projected onto a local plane around
+// the point, which is accurate at the sub-mile scale this check uses.
+export function distanceToFootprintMiles(
+  point: { latitude: number; longitude: number },
+  footprint: BearSourceAreaFeature,
+) {
+  const polygons =
+    footprint.geometry.type === 'Polygon'
+      ? [footprint.geometry.coordinates]
+      : footprint.geometry.coordinates;
+  let nearest = Infinity;
+  for (const rings of polygons) {
+    const containing = rings.map((ring) => {
+      const projected = ring.map((position) => projectMiles(position, point));
+      let inside = false;
+      for (let index = 0, previous = projected.length - 1; index < projected.length; previous = index++) {
+        const [ax, ay] = projected[previous];
+        const [bx, by] = projected[index];
+        nearest = Math.min(nearest, segmentDistance(ax, ay, bx, by));
+        if (ay > 0 !== by > 0 && (bx - ax) * (-ay) / (by - ay) + ax > 0) {
+          inside = !inside;
+        }
+      }
+      return inside;
+    });
+    // Inside the outer ring and outside every hole.
+    if (containing[0] && !containing.slice(1).some(Boolean)) return 0;
+  }
+  return nearest;
 }
 
 export function assessCampCandidate(
   candidate: CampCandidate,
-  target: BearTargetFeature,
+  footprint: BearSourceAreaFeature | undefined,
 ): CampAssessment {
   const distanceToSourceMiles =
-    candidate.latitude === undefined || candidate.longitude === undefined
+    candidate.latitude === undefined ||
+    candidate.longitude === undefined ||
+    footprint === undefined
       ? null
-      : distanceMiles(
+      : distanceToFootprintMiles(
           { latitude: candidate.latitude, longitude: candidate.longitude },
-          {
-            latitude: target.properties.latitude,
-            longitude: target.properties.longitude,
-          },
+          footprint,
         );
 
   const sourceRelationship =
     distanceToSourceMiles === null
       ? 'unknown'
-      : distanceToSourceMiles < 0.05
+      : distanceToSourceMiles === 0
         ? 'source-overlap'
         : distanceToSourceMiles < CAMP_SOURCE_CAUTION_MILES
           ? 'inside-caution'
           : 'outside-caution';
 
   const reasons: string[] = [];
-  if (candidate.legalStatus !== 'confirmed') {
+  if (candidate.legalStatus === 'stock-only') {
+    reasons.push('The campground is reserved for stock users and is ineligible for this non-stock trip.');
+  } else if (candidate.legalStatus !== 'confirmed') {
     reasons.push(
       candidate.legalStatus === 'verify'
         ? 'Exact-site camping authority still needs field verification.'
@@ -238,7 +314,9 @@ export function assessCampCandidate(
     );
   } else if (sourceRelationship === 'unknown') {
     reasons.push(
-      'Pin the exact occupied tent/vehicle site before relying on source separation.',
+      candidate.latitude === undefined || candidate.longitude === undefined
+        ? 'Pin the exact occupied tent/vehicle site before relying on source separation.'
+        : 'The source footprint is unavailable, so camp separation cannot be measured.',
     );
   }
   if (candidate.wetRoadRisk === 'high') {
@@ -246,7 +324,9 @@ export function assessCampCandidate(
   }
 
   const fit: CampFit =
-    sourceRelationship === 'source-overlap' || sourceRelationship === 'inside-caution'
+    candidate.legalStatus === 'stock-only'
+      ? 'ineligible'
+      : sourceRelationship === 'source-overlap' || sourceRelationship === 'inside-caution'
       ? 'fallback-only'
       : candidate.legalStatus === 'confirmed' && sourceRelationship === 'outside-caution'
         ? 'preferred'
@@ -261,7 +341,10 @@ export function assessCampCandidate(
   };
 }
 
-export function getCampPlan(target: BearTargetFeature) {
+export function getCampPlan(
+  target: BearTargetFeature,
+  footprint: BearSourceAreaFeature | undefined,
+) {
   const plan = TARGET_CAMP_PLANS.find(
     (candidate) => candidate.targetId === target.properties.targetId,
   );
@@ -269,7 +352,7 @@ export function getCampPlan(target: BearTargetFeature) {
   return {
     ...plan,
     candidates: plan.candidates.map((candidate) =>
-      assessCampCandidate(candidate, target),
+      assessCampCandidate(candidate, footprint),
     ),
   };
 }
