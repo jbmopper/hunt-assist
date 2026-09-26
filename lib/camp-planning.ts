@@ -1,9 +1,9 @@
 import type { Position } from 'geojson';
 import type { BearSourceAreaFeature, BearTargetFeature } from './bear-targets';
 
-export type CampFit = 'preferred' | 'conditional' | 'fallback-only';
+export type CampFit = 'preferred' | 'conditional' | 'fallback-only' | 'ineligible';
 export type CampKind = 'designated' | 'developed' | 'dispersed-corridor';
-export type CampLegalStatus = 'confirmed' | 'conditional' | 'verify';
+export type CampLegalStatus = 'confirmed' | 'conditional' | 'verify' | 'stock-only';
 
 export type CampCandidate = {
   id: string;
@@ -136,17 +136,17 @@ const TARGET_CAMP_PLANS: TargetCampPlan[] = [
         kind: 'developed',
         latitude: 39.99584,
         longitude: -107.237788,
-        legalStatus: 'conditional',
+        legalStatus: 'stock-only',
         legalBasis:
-          'Inventoried as a 5-site horse campground in the Trappers Lake complex. Confirm whether campers without stock may use it and check live availability before planning to sleep here.',
+          'All seven campsites are set aside for stock users only. This is not an overnight option for a non-stock tent camp.',
         access:
           'Same CR 8 / FR 205 approach as the other Trappers Lake campgrounds. Treat mud, rutting, or a deep center crown as a stop condition for a low-clearance car.',
         wetRoadRisk: 'high',
         foodStorage:
           'Use the site bear locker when supplied; otherwise lock attractants, refuse, and any stock feed in the vehicle. Do not leave coolers, feed, or cooking residue exposed.',
         source: {
-          label: 'CPW campground inventory (Hunting Atlas)',
-          url: 'https://ndismaps.nrel.colostate.edu/index.html',
+          label: 'Recreation.gov Horse Thief listing',
+          url: 'https://www.recreation.gov/camping/campgrounds/10352163',
         },
       },
     ],
@@ -295,7 +295,9 @@ export function assessCampCandidate(
           : 'outside-caution';
 
   const reasons: string[] = [];
-  if (candidate.legalStatus !== 'confirmed') {
+  if (candidate.legalStatus === 'stock-only') {
+    reasons.push('The campground is reserved for stock users and is ineligible for this non-stock trip.');
+  } else if (candidate.legalStatus !== 'confirmed') {
     reasons.push(
       candidate.legalStatus === 'verify'
         ? 'Exact-site camping authority still needs field verification.'
@@ -322,7 +324,9 @@ export function assessCampCandidate(
   }
 
   const fit: CampFit =
-    sourceRelationship === 'source-overlap' || sourceRelationship === 'inside-caution'
+    candidate.legalStatus === 'stock-only'
+      ? 'ineligible'
+      : sourceRelationship === 'source-overlap' || sourceRelationship === 'inside-caution'
       ? 'fallback-only'
       : candidate.legalStatus === 'confirmed' && sourceRelationship === 'outside-caution'
         ? 'preferred'

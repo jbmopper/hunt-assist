@@ -131,15 +131,16 @@ test('flags a camp inside the caution distance of an outlying patch', () => {
   assert.equal(assessment.fit, 'fallback-only');
 });
 
-test('assesses the Horse Thief campground as part of the Trappers source', () => {
+test('marks the stock-only Horse Thief campground as ineligible', () => {
   const target = targets.find(({ properties }) => properties.targetId === 'target-2');
   assert.ok(target);
   const plan = getCampPlan(target, footprintFor('target-2'));
   assert.ok(plan);
   const horseThief = plan.candidates.find(({ id }) => id === 'horse-thief-developed');
   assert.ok(horseThief);
+  assert.equal(horseThief.legalStatus, 'stock-only');
   assert.equal(horseThief.sourceRelationship, 'source-overlap');
-  assert.equal(horseThief.fit, 'fallback-only');
+  assert.equal(horseThief.fit, 'ineligible');
 });
 
 test('does not claim separation when the source footprint is missing', () => {

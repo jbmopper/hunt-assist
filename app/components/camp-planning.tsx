@@ -16,6 +16,7 @@ const FIT_LABELS = {
   preferred: 'Preferred',
   conditional: 'Conditional',
   'fallback-only': 'Fallback only',
+  ineligible: 'Ineligible',
 } as const;
 
 export default function CampPlanning({ sourceArea, target }: CampPlanningProps) {
