@@ -1,0 +1,32 @@
+{
+  "source": "USGS The National Map \u2014 USGSTopo",
+  "service": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
+  "attribution": "Map services and data available from U.S. Geological Survey, National Geospatial Program.",
+  "generated": "2026-09-26",
+  "zoomRange": [
+    7,
+    14
+  ],
+  "areas": {
+    "Rifle Creek": [
+      -107.84,
+      39.57,
+      -107.56,
+      39.79
+    ],
+    "Trappers Lake": [
+      -107.38,
+      39.88,
+      -107.1,
+      40.1
+    ],
+    "Chapman Reservoir": [
+      -107.22,
+      40.07,
+      -106.93,
+      40.28
+    ]
+  },
+  "tileCount": 779,
+  "totalBytes": 16469499
+}

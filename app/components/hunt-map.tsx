@@ -271,12 +271,32 @@ export default function HuntMap({
           }
         : {
             version: 8,
-            sources: {},
+            sources: {
+              'offline-usgs-topo': {
+                type: 'raster',
+                tiles: ['/data/offline-topo/{z}/{x}/{y}.jpg'],
+                tileSize: 256,
+                minzoom: 7,
+                maxzoom: 14,
+                attribution:
+                  'Map services and data available from U.S. Geological Survey, National Geospatial Program.',
+              },
+            },
             layers: [
               {
                 id: 'offline-background',
                 type: 'background',
                 paint: { 'background-color': '#dce3d5' },
+              },
+              {
+                id: 'offline-usgs-topo',
+                type: 'raster',
+                source: 'offline-usgs-topo',
+                paint: {
+                  'raster-saturation': -0.08,
+                  'raster-contrast': 0.08,
+                  'raster-brightness-max': 0.93,
+                },
               },
             ],
           };
@@ -655,7 +675,7 @@ export default function HuntMap({
             {mapStatus === 'loading' && 'Loading map…'}
             {mapStatus === 'ready' &&
               (!networkAvailable
-                ? 'Offline · saved model loaded'
+                ? 'Offline · saved topo + model loaded'
                 : analysisMode
                   ? 'Human-food model loaded'
                   : 'Map layers live')}
