@@ -6,7 +6,10 @@ import type {
   MapGeoJSONFeature,
   MapMouseEvent,
 } from 'maplibre-gl';
-import type { DataDrivenPropertyValueSpecification } from '@maplibre/maplibre-gl-style-spec';
+import type {
+  DataDrivenPropertyValueSpecification,
+  StyleSpecification,
+} from '@maplibre/maplibre-gl-style-spec';
 import { useEffect, useRef, useState } from 'react';
 import { CURRENT_DROUGHT_RASTER_TILES } from '@/lib/bear-intel';
 import type { LicenseRecord } from '@/lib/license-types';
@@ -22,6 +25,7 @@ import {
   fetchIntelCollection,
   HUMAN_FOOD_MAP_LAYERS,
   HUMAN_FOOD_QUERY,
+  type MapIntelCollection,
 } from './bear-map-layers';
 import MapLayerMenu, {
   type IntelStatus,
@@ -75,6 +79,60 @@ function setLayerVisibility(
   }
 }
 
+async function fetchSavedTripModel(signal: AbortSignal) {
+  const response = await fetch('/data/be012o1r-targets.geojson', { signal });
+  if (!response.ok) throw new Error('Saved trip model did not load');
+  return (await response.json()) as BearTargetCollection;
+}
+
+function savedGmuCollection(collection: BearTargetCollection) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: collection.features
+      .filter((feature) => feature.properties.kind === 'hunt-boundary')
+      .map((feature) => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          GMUID: Number(feature.properties.gmu),
+        },
+      })),
+  } as FeatureCollection<Geometry>;
+}
+
+function savedAreaCollection(collection: BearTargetCollection) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: collection.features.filter(
+      (feature) => feature.properties.kind === 'human-conflict',
+    ),
+    metadata: {
+      warnings: ['Offline snapshot: live forage source unavailable'],
+    },
+  } as MapIntelCollection;
+}
+
+function savedFoodCollection(collection: BearTargetCollection) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: collection.features
+      .filter((feature) => feature.properties.kind === 'source-member')
+      .map((feature) => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          kind: 'human-food-location',
+          source:
+            typeof feature.properties.inventory === 'string'
+              ? feature.properties.inventory
+              : 'Saved trip model',
+          representedSites: 1,
+        },
+      })),
+    metadata: { warnings: ['Offline snapshot: trip-area sources only'] },
+  } as MapIntelCollection;
+}
+
 export default function HuntMap({
   analysisMode,
   cautionMode,
@@ -97,6 +155,7 @@ export default function HuntMap({
     'loading',
   );
   const [intelStatus, setIntelStatus] = useState<IntelStatus>('loading');
+  const [networkAvailable, setNetworkAvailable] = useState(true);
 
   useEffect(() => {
     if (!mapNode.current || mapRef.current) return;
@@ -109,6 +168,119 @@ export default function HuntMap({
       const maplibregl = await import('maplibre-gl');
       if (disposed || !mapNode.current) return;
 
+      let forcedOffline = false;
+      try {
+        const response = await fetch('/api/runtime', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (response.ok) {
+          const runtime = (await response.json()) as { offline?: boolean };
+          forcedOffline = runtime.offline === true;
+        }
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') throw error;
+      }
+      const hasNetwork = window.navigator.onLine && !forcedOffline;
+      setNetworkAvailable(hasNetwork);
+      const style: StyleSpecification = hasNetwork
+        ? {
+            version: 8,
+            glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+            sources: {
+              'open-street-map': {
+                type: 'raster',
+                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                tileSize: 256,
+                attribution:
+                  '&copy; OpenStreetMap contributors · Colorado GMUs: CPW',
+              },
+              'usgs-imagery': {
+                type: 'raster',
+                tiles: [
+                  'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',
+                ],
+                tileSize: 256,
+                maxzoom: 16,
+                attribution: 'Aerial imagery: USGS The National Map / NAIP',
+              },
+              'current-drought': {
+                type: 'raster',
+                tiles: CURRENT_DROUGHT_RASTER_TILES,
+                tileSize: 256,
+                attribution: 'Current drought: U.S. Drought Monitor / FEMA',
+              },
+              'cpw-land-management': {
+                type: 'raster',
+                tiles: atlasRasterTiles('103'),
+                tileSize: 256,
+                attribution: 'Land management: CPW / COMaP',
+              },
+              'cpw-public-access': {
+                type: 'raster',
+                tiles: atlasRasterTiles('101%2C102'),
+                tileSize: 256,
+                attribution: 'Public access and Walk-In Access: CPW',
+              },
+            },
+            layers: [
+              {
+                id: 'base-map',
+                type: 'raster',
+                source: 'open-street-map',
+                paint: {
+                  'raster-saturation': -0.78,
+                  'raster-contrast': 0.08,
+                  'raster-brightness-max': 0.93,
+                },
+              },
+              {
+                id: 'target-imagery',
+                type: 'raster',
+                source: 'usgs-imagery',
+                layout: { visibility: 'none' },
+                paint: {
+                  'raster-saturation': -0.12,
+                  'raster-contrast': 0.16,
+                  'raster-brightness-min': 0.04,
+                  'raster-brightness-max': 0.82,
+                },
+              },
+              {
+                id: 'drought-stress-overlay',
+                type: 'raster',
+                source: 'current-drought',
+                layout: { visibility: 'none' },
+                paint: { 'raster-opacity': 0.26 },
+              },
+              {
+                id: 'land-management-overlay',
+                type: 'raster',
+                source: 'cpw-land-management',
+                layout: { visibility: 'none' },
+                paint: { 'raster-opacity': 0.7 },
+              },
+              {
+                id: 'public-access-overlay',
+                type: 'raster',
+                source: 'cpw-public-access',
+                layout: { visibility: 'none' },
+                paint: { 'raster-opacity': 0.88 },
+              },
+            ],
+          }
+        : {
+            version: 8,
+            sources: {},
+            layers: [
+              {
+                id: 'offline-background',
+                type: 'background',
+                paint: { 'background-color': '#dce3d5' },
+              },
+            ],
+          };
+
       const map = new maplibregl.Map({
         container: mapNode.current,
         center: [-105.58, 38.98],
@@ -116,91 +288,7 @@ export default function HuntMap({
         minZoom: 4.8,
         maxZoom: 17,
         attributionControl: false,
-        style: {
-          version: 8,
-          glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
-          sources: {
-            'open-street-map': {
-              type: 'raster',
-              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-              tileSize: 256,
-              attribution:
-                '&copy; OpenStreetMap contributors · Colorado GMUs: CPW',
-            },
-            'usgs-imagery': {
-              type: 'raster',
-              tiles: [
-                'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',
-              ],
-              tileSize: 256,
-              maxzoom: 16,
-              attribution: 'Aerial imagery: USGS The National Map / NAIP',
-            },
-            'current-drought': {
-              type: 'raster',
-              tiles: CURRENT_DROUGHT_RASTER_TILES,
-              tileSize: 256,
-              attribution: 'Current drought: U.S. Drought Monitor / FEMA',
-            },
-            'cpw-land-management': {
-              type: 'raster',
-              tiles: atlasRasterTiles('103'),
-              tileSize: 256,
-              attribution: 'Land management: CPW / COMaP',
-            },
-            'cpw-public-access': {
-              type: 'raster',
-              tiles: atlasRasterTiles('101%2C102'),
-              tileSize: 256,
-              attribution: 'Public access and Walk-In Access: CPW',
-            },
-          },
-          layers: [
-            {
-              id: 'base-map',
-              type: 'raster',
-              source: 'open-street-map',
-              paint: {
-                'raster-saturation': -0.78,
-                'raster-contrast': 0.08,
-                'raster-brightness-max': 0.93,
-              },
-            },
-            {
-              id: 'target-imagery',
-              type: 'raster',
-              source: 'usgs-imagery',
-              layout: { visibility: 'none' },
-              paint: {
-                'raster-saturation': -0.12,
-                'raster-contrast': 0.16,
-                'raster-brightness-min': 0.04,
-                'raster-brightness-max': 0.82,
-              },
-            },
-            {
-              id: 'drought-stress-overlay',
-              type: 'raster',
-              source: 'current-drought',
-              layout: { visibility: 'none' },
-              paint: { 'raster-opacity': 0.26 },
-            },
-            {
-              id: 'land-management-overlay',
-              type: 'raster',
-              source: 'cpw-land-management',
-              layout: { visibility: 'none' },
-              paint: { 'raster-opacity': 0.7 },
-            },
-            {
-              id: 'public-access-overlay',
-              type: 'raster',
-              source: 'cpw-public-access',
-              layout: { visibility: 'none' },
-              paint: { 'raster-opacity': 0.88 },
-            },
-          ],
-        },
+        style,
       });
 
       mapRef.current = map;
@@ -216,11 +304,27 @@ export default function HuntMap({
       );
 
       map.on('load', async () => {
-        setMapStatus('ready');
         try {
-          const response = await fetch(GMU_QUERY, { signal: controller.signal });
-          if (!response.ok) throw new Error('GMU service did not respond');
-          const data = (await response.json()) as FeatureCollection<Geometry>;
+          let data: FeatureCollection<Geometry> | null = null;
+          if (hasNetwork) {
+            try {
+              const response = await fetch(GMU_QUERY, {
+                signal: AbortSignal.any([
+                  controller.signal,
+                  AbortSignal.timeout(3_000),
+                ]),
+              });
+              if (!response.ok) throw new Error('GMU service did not respond');
+              data = (await response.json()) as FeatureCollection<Geometry>;
+            } catch (error) {
+              if ((error as Error).name === 'AbortError') throw error;
+              setNetworkAvailable(false);
+            }
+          }
+          const savedModel = data
+            ? null
+            : await fetchSavedTripModel(controller.signal);
+          data ??= savedGmuCollection(savedModel!);
           if (disposed) return;
 
           map.addSource('colorado-gmus', {
@@ -244,22 +348,24 @@ export default function HuntMap({
               'line-width': 1.2,
             },
           });
-          map.addLayer({
-            id: 'gmu-labels',
-            type: 'symbol',
-            source: 'colorado-gmus',
-            minzoom: 6.3,
-            layout: {
-              'text-field': ['to-string', ['get', 'GMUID']],
-              'text-size': 11,
-              'text-font': ['Open Sans Semibold'],
-            },
-            paint: {
-              'text-color': '#173326',
-              'text-halo-color': '#f4f0e7',
-              'text-halo-width': 1.5,
-            },
-          });
+          if (hasNetwork) {
+            map.addLayer({
+              id: 'gmu-labels',
+              type: 'symbol',
+              source: 'colorado-gmus',
+              minzoom: 6.3,
+              layout: {
+                'text-field': ['to-string', ['get', 'GMUID']],
+                'text-size': 11,
+                'text-font': ['Open Sans Semibold'],
+              },
+              paint: {
+                'text-color': '#173326',
+                'text-halo-color': '#f4f0e7',
+                'text-halo-width': 1.5,
+              },
+            });
+          }
 
           const onMapClick = (event: MapMouseEvent) => {
             const targetLayers = BEAR_TARGET_INTERACTIVE_LAYERS.filter(
@@ -295,10 +401,47 @@ export default function HuntMap({
           map.on('mouseleave', 'gmu-fill', () => {
             map.getCanvas().style.cursor = '';
           });
-          void Promise.allSettled([
-            fetchIntelCollection(BEAR_AREA_QUERY, controller.signal),
-            fetchIntelCollection(HUMAN_FOOD_QUERY, controller.signal),
-          ]).then(([areaResult, foodResult]) => {
+
+          setMapStatus('ready');
+          void (async () => {
+            let areaResult: PromiseSettledResult<MapIntelCollection>;
+            let foodResult: PromiseSettledResult<MapIntelCollection>;
+            if (hasNetwork) {
+              [areaResult, foodResult] = await Promise.allSettled([
+                fetchIntelCollection(BEAR_AREA_QUERY, controller.signal),
+                fetchIntelCollection(HUMAN_FOOD_QUERY, controller.signal),
+              ]);
+              if (
+                areaResult.status === 'rejected' ||
+                foodResult.status === 'rejected'
+              ) {
+                const localModel = await fetchSavedTripModel(controller.signal);
+                if (areaResult.status === 'rejected') {
+                  areaResult = {
+                    status: 'fulfilled',
+                    value: savedAreaCollection(localModel),
+                  };
+                }
+                if (foodResult.status === 'rejected') {
+                  foodResult = {
+                    status: 'fulfilled',
+                    value: savedFoodCollection(localModel),
+                  };
+                }
+                setNetworkAvailable(false);
+              }
+            } else {
+              const localModel = savedModel ??
+                (await fetchSavedTripModel(controller.signal));
+              areaResult = {
+                status: 'fulfilled',
+                value: savedAreaCollection(localModel),
+              };
+              foodResult = {
+                status: 'fulfilled',
+                value: savedFoodCollection(localModel),
+              };
+            }
             if (disposed) return;
             let loadedSources = 0;
             let warningCount = 0;
@@ -326,9 +469,14 @@ export default function HuntMap({
                   ? 'partial'
                   : 'ready',
             );
+          })().catch((error) => {
+            if (!disposed && (error as Error).name !== 'AbortError') {
+              setIntelStatus('error');
+            }
           });
         } catch (error) {
           if (!disposed && (error as Error).name !== 'AbortError') {
+            setMapStatus('ready');
             setIntelStatus('error');
           }
         }
@@ -393,7 +541,7 @@ export default function HuntMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.getLayer('target-imagery')) return;
+    if (!map) return;
     setLayerVisibility(map, ['target-imagery'], analysisMode);
     setLayerVisibility(map, BEAR_TARGET_LAYER_IDS, analysisMode);
   }, [analysisMode, mapStatus, targetCollection]);
@@ -442,7 +590,7 @@ export default function HuntMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.getLayer('public-access-overlay')) return;
+    if (!map) return;
     setLayerVisibility(map, ['public-access-overlay'], layers.access);
     setLayerVisibility(map, ['land-management-overlay'], layers.land);
     setLayerVisibility(map, ['drought-stress-overlay'], layers.forage);
@@ -500,12 +648,17 @@ export default function HuntMap({
           <MapLayerMenu
             intelStatus={intelStatus}
             layers={layers}
+            networkAvailable={networkAvailable}
             onChange={changeLayer}
           />
           <span className={`map-status map-status-${mapStatus}`}>
             {mapStatus === 'loading' && 'Loading map…'}
             {mapStatus === 'ready' &&
-              (analysisMode ? 'Human-food model loaded' : 'Map layers live')}
+              (!networkAvailable
+                ? 'Offline · saved model loaded'
+                : analysisMode
+                  ? 'Human-food model loaded'
+                  : 'Map layers live')}
             {mapStatus === 'error' && 'Map unavailable'}
           </span>
         </div>

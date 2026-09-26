@@ -46,6 +46,11 @@ npm run check
   decisions; it does not invent a distance-based baiting safe harbor. Camp
   separation is measured from the full multipart source footprint, not the
   cluster's headline point.
+- Adds a print-ready September 26-29 field packet at `/trip-brief`. It uses the
+  mapped rule screen rather than the discretionary caution rings as the default,
+  preserves two nights at West Rifle Creek SWA, and consolidates the trip route,
+  camp eligibility, charging stops, legal field rules, scout coordinates, and
+  harvest checklist.
 - Clusters developed camping locations and shows their manager, source vintage,
   capacity/use details when available, and an official source link on click.
 - Saves starred hunt codes in browser storage on the current device.

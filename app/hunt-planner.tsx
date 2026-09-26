@@ -112,7 +112,7 @@ export default function HuntPlanner() {
     'target-1',
   );
   const [bearCautionMode, setBearCautionMode] =
-    useState<BearCautionMode>('half-mile');
+    useState<BearCautionMode>('rule-screen');
 
   const bearTargets = useMemo(
     () => getBearTargets(targetCollection),

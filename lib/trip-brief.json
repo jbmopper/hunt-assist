@@ -1,0 +1,288 @@
+{
+  "title": "BE012O1R field packet",
+  "subtitle": "Rifle - Trappers Lake - optional Chapman",
+  "prepared": "September 26, 2026",
+  "stance": "Legality first. The mapped rule screen, current ownership, posted closures, and a safe backstop are go/no-go items. The 0.25- and 0.5-mile rings are optional planning context, not legal setbacks.",
+  "hunt": {
+    "code": "BE012O1R",
+    "species": "Black bear - either sex",
+    "method": "Limited rifle and associated methods",
+    "season": "September 2-30, 2026",
+    "units": "12, 13, 23, 24, 25, 26, 33, 131, 231",
+    "tripDates": "Saturday September 26 through Tuesday September 29",
+    "legalHours": "One-half hour before sunrise through one-half hour after sunset. Use the CPW/NOAA time for the exact location."
+  },
+  "itinerary": [
+    {
+      "day": "SAT 26",
+      "title": "Rifle charge, zero, then settle in",
+      "plan": "Charge at Rifle, drive to West Rifle Creek SWA, use the designated range before sunset, occupy the signed SWA campground, and scout a Rifle corridor if daylight remains.",
+      "sleep": "West Rifle Creek SWA campground - night 1 of 2",
+      "decision": "The range is closed sunset to sunrise. Camping is lawful here for a licensed hunter during this active big-game season."
+    },
+    {
+      "day": "SUN 27",
+      "title": "Full Rifle hunt day",
+      "plan": "Hunt the Rifle cluster at first and last light. Start with H01B for the strongest all-federal map signal; use H01D as the shorter secondary scout.",
+      "sleep": "West Rifle Creek SWA campground - night 2 of 2",
+      "decision": "Do not treat Rifle Falls State Park or a developed campground as a shooting area. Confirm the occupied point is on huntable land."
+    },
+    {
+      "day": "MON 28",
+      "title": "Top off in Rifle, loop through Meeker",
+      "plan": "Return to the Rifle Supercharger and leave near the charge level selected in the car for the remote loop. Take CO 13 to Meeker, then CR 8 and FR 205 to Trappers Lake. Scout or hunt H02A or H02D.",
+      "sleep": "Shepherds Rim if signed open/available; otherwise a posted-legal established dispersed site below the lake complex",
+      "decision": "Horse Thief is stock-users-only. Trappers Lake wilderness camping exclusions still apply even when a pullout looks established."
+    },
+    {
+      "day": "TUE 29",
+      "title": "Dawn at Trappers; Chapman is optional",
+      "plan": "Hunt Trappers at first light. Add Chapman only if time, charge, and the signed road status support it; otherwise exit toward the Kremmling Supercharger. At Chapman, start with H03C or H03A.",
+      "sleep": "Return Tuesday; if extending, use the signed Chapman campground or a legal FR 940 dispersed site",
+      "decision": "The Tesla decides road suitability in the field. The packet does not impose a weather-based closure that the land manager has not imposed."
+    }
+  ],
+  "legalRules": [
+    {
+      "label": "LICENSE / PLACE",
+      "rule": "Carry the valid BE012O1R license and hunt only its listed GMUs. A hunting license satisfies West Rifle Creek SWA access during the season.",
+      "fieldAction": "Keep the license and photo ID on you; keep the offline GMU/ownership layers available."
+    },
+    {
+      "label": "HOURS / ORANGE",
+      "rule": "Legal big-game hours are one-half hour before sunrise through one-half hour after sunset. A firearm bear hunter needs 500 square inches of solid fluorescent orange or pink above the waist plus a visible-from-all-directions hat.",
+      "fieldAction": "Set daily alarms from the exact-location sunrise/sunset and wear compliant solid color."
+    },
+    {
+      "label": "SHOT LOCATION",
+      "rule": "On National Forest land, do not discharge within 150 yards of a residence, building, campsite, developed recreation site, or occupied area, or across/in a manner exposing a person or property. Colorado also prohibits firing from, on, or across a public road; firearm/bow shooters must be at least 50 feet from the road centerline.",
+      "fieldAction": "Use the red rule screen as the initial map filter, then confirm the real facility edge, road, ownership, target, and backstop on site."
+    },
+    {
+      "label": "BAIT",
+      "rule": "It is illegal to hunt big game over bait regardless of who placed it. Food, refuse, animal parts, salt, minerals, grain, and food-scent products cannot be put out as an attraction.",
+      "fieldAction": "Store camp food; never place or expose it to influence bear movement, and do not make the camp/vehicle the shot focus."
+    },
+    {
+      "label": "FOOD STORAGE",
+      "rule": "On White River National Forest from May 15 through October 1, unattended attractants must use an allowed method. A closed, locked hard-sided vehicle is expressly allowed; so is an IGBC-certified bear-resistant container. The cited order does not prescribe a tent-to-vehicle distance.",
+      "fieldAction": "Put food, trash, toiletries, cooking residue, and scented gear in the locked Tesla with all openings closed, or use an approved locker/canister."
+    },
+    {
+      "label": "DEFENSE OF PROPERTY",
+      "rule": "Colorado allows wildlife to be killed only when necessary to prevent death, damage, or injury to human life, livestock, real property, or a motor vehicle. Any wildlife killed remains state property and must be reported to CPW within five days.",
+      "fieldAction": "A bear merely approaching or investigating is not automatically the necessity finding. Avoid, deter, document, and call CPW; use force only when the statutory necessity actually exists."
+    },
+    {
+      "label": "AFTER A KILL",
+      "rule": "Immediately sign, date, detach, and attach the carcass tag. Leave evidence of sex naturally attached; recover the edible meat. Personally present the unfrozen head and hide to CPW within five working days for report, seal, and tooth extraction.",
+      "fieldAction": "Mark the kill GPS coordinate and GMU, preserve the head/hide unfrozen, and call the nearest CPW office during business hours."
+    }
+  ],
+  "camps": [
+    {
+      "name": "West Rifle Creek SWA campground",
+      "fit": "PRIMARY - TWO NIGHTS",
+      "location": "Campground on CR 252, four miles northwest of Hwy 325; follow CPW signs",
+      "legal": "Camping is limited to licensed hunters during an established big-game season and the three days before/after. Fires only in a containment structure.",
+      "food": "Use the locked Tesla for attractants when unattended; leave the tent free of food and cooking residue.",
+      "note": "This is the range/camp stop. It is not Rifle Falls State Park."
+    },
+    {
+      "name": "Shepherds Rim Campground",
+      "fit": "TRAPPERS DEVELOPED FALLBACK",
+      "location": "39.994722, -107.242778 - CR 8 to FR 205 south",
+      "legal": "Use only a signed open and available site. The listing provides bear lockers at each site.",
+      "food": "Use the provided locker or the locked vehicle whenever attractants are unattended.",
+      "note": "The campground overlaps the modeled food-source footprint, but that is a hunting-quality issue, not a camping prohibition."
+    },
+    {
+      "name": "Lower FR 205 / CR 8 dispersed",
+      "fit": "TRAPPERS PREFERRED BASE IF LEGAL ON SITE",
+      "location": "Use a previously occupied pullout below the developed complex only after checking the current MVUM, signs, and land ownership",
+      "legal": "Inside Flat Tops Wilderness, camping is prohibited within 100 feet of water, a system trail, or restoration/no-camping signs, and within one-quarter mile of Trappers Lake. Vehicle camping must also stay on an open motor route.",
+      "food": "Locked hard-sided vehicle is an allowed White River food-storage method through October 1.",
+      "note": "Previously disturbed ground is evidence of use, not by itself legal authority."
+    },
+    {
+      "name": "Horse Thief Campground",
+      "fit": "INELIGIBLE",
+      "location": "Trappers Lake complex",
+      "legal": "All seven sites are set aside for stock users only.",
+      "food": "Bear boxes are provided, but that does not change site eligibility.",
+      "note": "Do not use for this non-stock trip."
+    },
+    {
+      "name": "Chapman Reservoir / FR 940",
+      "fit": "OPTIONAL TUESDAY",
+      "location": "40.186666, -107.086231 - Forest Road 940 near Dunckley Pass",
+      "legal": "The developed campground is the clean legal fallback when signed open. Dispersed sites require an open motor route, public land, and no posted closure.",
+      "food": "Use the locked vehicle or any provided approved storage for all unattended attractants.",
+      "note": "The official facility description calls the main approach gravel 2WD; the final occupied site still controls."
+    }
+  ],
+  "charging": [
+    {
+      "name": "Rifle Supercharger",
+      "address": "675 Wapiti Ct, Rifle, CO 81650",
+      "detail": "12 stalls, up to 250 kW, 24/7. Use before West Rifle and again before the Meeker/Trappers loop."
+    },
+    {
+      "name": "Kremmling Supercharger",
+      "address": "605 Park Avenue, Kremmling, CO 80459",
+      "detail": "8 stalls, up to 250 kW, 24/7. Use as the eastern exit checkpoint."
+    }
+  ],
+  "scoutCards": [
+    {
+      "target": "Rifle cluster - GMU 33",
+      "camp": "West Rifle Creek SWA",
+      "options": [
+        {
+          "id": "H01B",
+          "name": "Big Parker Creek",
+          "coordinates": "39.696427, -107.740100",
+          "sourceDistance": "2.24 mi from source footprint",
+          "ruleRoute": "2.90 mi modeled outer route",
+          "mapSignal": "100% mapped federal land; security 63"
+        },
+        {
+          "id": "H01D",
+          "name": "West Elk Reservoir",
+          "coordinates": "39.676758, -107.665527",
+          "sourceDistance": "1.32 mi from source footprint",
+          "ruleRoute": "1.48 mi modeled outer route",
+          "mapSignal": "100% mapped federal land; security 59"
+        }
+      ]
+    },
+    {
+      "target": "Trappers Lake cluster - GMU 24",
+      "camp": "Shepherds Rim or legal lower-road dispersed site",
+      "options": [
+        {
+          "id": "H02A",
+          "name": "Lake of the Woods",
+          "coordinates": "40.022751, -107.248367",
+          "sourceDistance": "1.87 mi from source footprint",
+          "ruleRoute": "1.89 mi modeled outer route",
+          "mapSignal": "100% mapped federal land; security 60"
+        },
+        {
+          "id": "H02D",
+          "name": "Fraser Creek",
+          "coordinates": "39.974245, -107.242739",
+          "sourceDistance": "1.19 mi from source footprint",
+          "ruleRoute": "1.14 mi modeled outer route",
+          "mapSignal": "100% mapped federal land; security 57"
+        }
+      ]
+    },
+    {
+      "target": "Chapman Reservoir cluster - GMU 231",
+      "camp": "Chapman campground or verified FR 940 dispersed site",
+      "options": [
+        {
+          "id": "H03C",
+          "name": "Dunckley Pass",
+          "coordinates": "40.188105, -107.146898",
+          "sourceDistance": "2.69 mi from source footprint",
+          "ruleRoute": "2.81 mi modeled outer route",
+          "mapSignal": "100% mapped federal land; security 72"
+        },
+        {
+          "id": "H03A",
+          "name": "Simon Reservoir Number 1",
+          "coordinates": "40.168428, -107.060463",
+          "sourceDistance": "1.79 mi from source footprint",
+          "ruleRoute": "1.88 mi modeled outer route",
+          "mapSignal": "100% mapped federal land; security 66"
+        }
+      ]
+    }
+  ],
+  "goNoGo": [
+    "GO: valid unit and season; public/huntable parcel; no closure; outside the actual discharge exclusion; safe target and backstop; legal road position; legal hours.",
+    "NO-GO: private/unknown land without permission; posted closure; developed/occupied-area discharge zone; road violation; bait relationship; cub/family group; unsafe backstop.",
+    "FIELD JUDGMENT: clearance, mud, rut depth, center crown, weather, fire choice, optional caution-ring separation, and whether current sign justifies spending time."
+  ],
+  "checklist": [
+    "License, photo ID, hunter education proof if required, carcass tag intact",
+    "Solid fluorescent orange/pink outer garment and visible hat",
+    "Offline Hunting Atlas/ownership, Hunt Assist GPX, MVUMs, paper field packet",
+    "Rifle, legal ammunition, case, eye/ear protection, zeroing targets",
+    "Binoculars (do not identify bears through a rifle scope), rangefinder, headlamp",
+    "Tent/sleep system; food and every scented item consolidated for locked-car storage",
+    "Game bags, gloves, knife, cooling plan, cord, evidence-of-sex plan",
+    "Phone power, charging adapters/cables, tire kit, compressor, recovery/traction basics",
+    "Exact cash/check for remote fee sites, water, and a no-fire cooking option"
+  ],
+  "contacts": [
+    {
+      "label": "CPW Grand Junction / West Rifle",
+      "value": "970-255-6100"
+    },
+    {
+      "label": "CPW Meeker / Trappers",
+      "value": "970-878-6090"
+    },
+    {
+      "label": "CPW Steamboat / Chapman",
+      "value": "970-870-3333"
+    },
+    {
+      "label": "White River - Rifle Ranger District",
+      "value": "970-625-2371"
+    },
+    {
+      "label": "White River - Blanco Ranger District",
+      "value": "970-878-4039"
+    },
+    {
+      "label": "Tesla roadside assistance",
+      "value": "877-798-3752"
+    }
+  ],
+  "sources": [
+    {
+      "label": "2026 Colorado Big Game Brochure",
+      "url": "https://cpw.state.co.us/sites/default/files/dam/erjzbk48be/colorado-big-game-hunting-brochure.pdf"
+    },
+    {
+      "label": "CPW Bear - In the Field",
+      "url": "https://cpw.state.co.us/activities/hunting/big-game/hunting-bear/bear-field"
+    },
+    {
+      "label": "CPW West Rifle Creek SWA",
+      "url": "https://cpw.state.co.us/state-wildlife-areas/west-rifle-creek-swa"
+    },
+    {
+      "label": "White River food storage order WRNF-2024-11",
+      "url": "https://www.fs.usda.gov/sites/nfs/files/r02/whiteriver/publication/alerts/fseprd1175796%20Food%20storage%20order.pdf"
+    },
+    {
+      "label": "Flat Tops Wilderness order WRNF-2024-10",
+      "url": "https://www.fs.usda.gov/Internet/FSE_DOCUMENTS/fseprd1164097.pdf"
+    },
+    {
+      "label": "Shepherds Rim campground",
+      "url": "https://www.recreation.gov/camping/campgrounds/234795"
+    },
+    {
+      "label": "Horse Thief stock-only listing",
+      "url": "https://www.recreation.gov/camping/campgrounds/10352163"
+    },
+    {
+      "label": "White River current alerts",
+      "url": "https://www.fs.usda.gov/r02/whiteriver/alerts"
+    },
+    {
+      "label": "Tesla Rifle Supercharger",
+      "url": "https://www.tesla.com/findus/location/supercharger/32776"
+    },
+    {
+      "label": "Tesla Kremmling Supercharger",
+      "url": "https://www.tesla.com/findus/location/supercharger/kremmlingcoparkavenuesupercharger"
+    }
+  ]
+}

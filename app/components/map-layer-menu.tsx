@@ -9,12 +9,14 @@ export type MapLayerState = Record<MapLayerKey, boolean>;
 type MapLayerMenuProps = {
   intelStatus: IntelStatus;
   layers: MapLayerState;
+  networkAvailable: boolean;
   onChange: (layer: MapLayerKey, visible: boolean) => void;
 };
 
 export default function MapLayerMenu({
   intelStatus,
   layers,
+  networkAvailable,
   onChange,
 }: MapLayerMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -91,6 +93,7 @@ export default function MapLayerMenu({
                 type="checkbox"
                 checked={layers.access}
                 onChange={(event) => onChange('access', event.target.checked)}
+                disabled={!networkAvailable}
               />
             </label>
             <label className="map-layer-row">
@@ -102,6 +105,7 @@ export default function MapLayerMenu({
                 type="checkbox"
                 checked={layers.land}
                 onChange={(event) => onChange('land', event.target.checked)}
+                disabled={!networkAvailable}
               />
             </label>
           </fieldset>
@@ -146,6 +150,12 @@ export default function MapLayerMenu({
                 'Loaded with a partial source fallback'}
               {intelStatus === 'error' && 'Bear proxy sources unavailable'}
             </span>
+            {!networkAvailable && (
+              <span className="intel-source-status intel-source-partial">
+                Offline: using the saved trip model; remote basemap, drought,
+                CPW access, and land-manager tiles are unavailable.
+              </span>
+            )}
           </fieldset>
           <p className="map-layer-caveat">
             These layers rank places to investigate. They do not establish

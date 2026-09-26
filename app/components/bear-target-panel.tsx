@@ -73,9 +73,21 @@ export default function BearTargetPanel({
           <strong>{targets.length} conflict-linked source clusters</strong>
           <small>{securityOptions.length} behavior-informed corridor options</small>
         </div>
-        <a className="gpx-button" href="/data/be012o1r-targets.gpx" download>
-          GPX ↓
-        </a>
+        <div className="target-downloads">
+          <a className="gpx-button" href="/trip-brief">
+            Field brief ↗
+          </a>
+          <a
+            className="gpx-button"
+            href="/data/be012o1r-field-packet.pdf"
+            download
+          >
+            PDF
+          </a>
+          <a className="gpx-button" href="/data/be012o1r-targets.gpx" download>
+            GPX ↓
+          </a>
+        </div>
         <p>
           Every cluster keeps its contributing records and mapped attraction
           patches. Choose where the outer corridor stops; the remaining modeled

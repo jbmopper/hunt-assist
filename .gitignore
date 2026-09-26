@@ -36,3 +36,5 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+/output/offline/hunt-assist-offline-macos-sep-26-2026-final/
+/output/pdf/

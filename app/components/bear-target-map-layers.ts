@@ -385,20 +385,23 @@ export function addOrUpdateBearTargetLayers(
       'circle-stroke-width': 2.2,
     },
   });
-  map.addLayer({
-    id: 'bear-source-labels',
-    type: 'symbol',
-    source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'target'],
-    layout: {
-      visibility: 'none',
-      'text-field': ['to-string', ['get', 'rank']],
-      'text-font': ['Open Sans Semibold'],
-      'text-size': 11,
-      'text-allow-overlap': true,
-    },
-    paint: { 'text-color': '#fffdf5' },
-  });
+  const hasGlyphs = Boolean(map.getStyle().glyphs);
+  if (hasGlyphs) {
+    map.addLayer({
+      id: 'bear-source-labels',
+      type: 'symbol',
+      source: 'bear-target-analysis',
+      filter: ['==', ['get', 'kind'], 'target'],
+      layout: {
+        visibility: 'none',
+        'text-field': ['to-string', ['get', 'rank']],
+        'text-font': ['Open Sans Semibold'],
+        'text-size': 11,
+        'text-allow-overlap': true,
+      },
+      paint: { 'text-color': '#fffdf5' },
+    });
+  }
   map.addLayer({
     id: 'bear-security-points',
     type: 'circle',
@@ -412,20 +415,22 @@ export function addOrUpdateBearTargetLayers(
       'circle-stroke-width': 2,
     },
   });
-  map.addLayer({
-    id: 'bear-security-labels',
-    type: 'symbol',
-    source: 'bear-target-analysis',
-    filter: ['==', ['get', 'kind'], 'security'],
-    layout: {
-      visibility: 'none',
-      'text-field': ['get', 'optionLabel'],
-      'text-font': ['Open Sans Semibold'],
-      'text-size': 10,
-      'text-allow-overlap': true,
-    },
-    paint: { 'text-color': '#f4fff9' },
-  });
+  if (hasGlyphs) {
+    map.addLayer({
+      id: 'bear-security-labels',
+      type: 'symbol',
+      source: 'bear-target-analysis',
+      filter: ['==', ['get', 'kind'], 'security'],
+      layout: {
+        visibility: 'none',
+        'text-field': ['get', 'optionLabel'],
+        'text-font': ['Open Sans Semibold'],
+        'text-size': 10,
+        'text-allow-overlap': true,
+      },
+      paint: { 'text-color': '#f4fff9' },
+    });
+  }
 }
 
 export function setBearTargetSelection(
@@ -464,12 +469,14 @@ export function setBearTargetSelection(
     1,
     0.3,
   ]);
-  map.setPaintProperty('bear-security-labels', 'text-opacity', [
-    'case',
-    selected,
-    1,
-    0.25,
-  ]);
+  if (map.getLayer('bear-security-labels')) {
+    map.setPaintProperty('bear-security-labels', 'text-opacity', [
+      'case',
+      selected,
+      1,
+      0.25,
+    ]);
+  }
   map.setPaintProperty('bear-corridors', 'line-opacity', [
     'case',
     selected,
